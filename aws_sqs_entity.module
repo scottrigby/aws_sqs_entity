@@ -1,0 +1,38 @@
+<?php
+
+/**
+ * @file
+ * Hook implementations for Amazon SQS Entity module.
+ */
+
+use \Drupal\aws_sqs_entity\Entity\CrudQueue;
+
+/**
+ * Implements hook_entity_insert().
+ */
+function aws_sqs_entity_insert($entity, $type) {
+  $op = 'insert';
+  if ($queue = CrudQueue::get($type, $entity, $op)) {
+    $queue->sendItem();
+  }
+}
+
+/**
+ * Implements hook_entity_update().
+ */
+function aws_sqs_entity_update($entity, $type) {
+  $op = 'update';
+  if ($queue = CrudQueue::get($type, $entity, $op)) {
+    $queue->sendItem();
+  }
+}
+
+/**
+ * Implements hook_entity_delete().
+ */
+function aws_sqs_entity_delete($entity, $type) {
+  $op = 'delete';
+  if ($queue = CrudQueue::get($type, $entity, $op)) {
+    $queue->sendItem();
+  }
+}
