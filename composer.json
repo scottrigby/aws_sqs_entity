@@ -1,0 +1,10 @@
+{
+  "name": "drupal/aws_sqs_entity",
+  "description": "Exposes Drupal entities to AWS SQS through Entity CRUD operations.",
+  "type": "drupal-module",
+  "autoload": {
+    "psr-4": {
+      "Drupal\\aws_sqs_entity\\": "src/"
+    }
+  }
+}
