@@ -98,7 +98,7 @@ class CrudQueue extends \AwsSqsQueue {
    * @see createQueue()
    * @see createItem()
    */
-  static public function get($type, $entity, $op) {
+  static public function getQueue($type, $entity, $op) {
     if ($name = variable_get('aws_sqs_entity_queue_name')) {
       $queue = \DrupalQueue::get($name);
       if ($queue instanceof CrudQueue) {
