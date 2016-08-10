@@ -8,6 +8,21 @@
 use \Drupal\aws_sqs_entity\Entity\CrudQueue;
 
 /**
+ * Implements hook_menu().
+ */
+function aws_sqs_entity_menu() {
+  $items['admin/config/system/aws-sqs-entity'] = array(
+    'title' => 'AWS SQS Entity Settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('aws_sqs_entity_settings'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'aws_sqs_entity.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
  * Implements hook_entity_insert().
  */
 function aws_sqs_entity_insert($entity, $type) {
