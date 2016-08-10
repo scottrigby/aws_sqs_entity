@@ -38,50 +38,38 @@ class CrudQueue extends \AwsSqsQueue {
   /**
    * {@inheritdoc}
    *
-   * Note this method should not be called directly. Instead, use get().
+   * This method should not be called directly. Instead, use getQueue().
    *
    * Example:
    * @code
-   * $queue = \Drupal\aws_sqs_entity\Entity\CrudQueue::get($type, $entity, $op);
+   * $queue = \Drupal\aws_sqs_entity\Entity\CrudQueue::getQueue($type, $entity, $op);
    * @endcode
-   *
-   * Additionally sets queue_class_$name during queue creation when this class
-   * (or any class that extends it) is called directly. From that point forward,
-   * getting the queue with DrupalQueue::get() will automatically use our set
-   * class name.
-   *
-   * This allows us to do the following:
-   * @code
-   * class CustomCrud extends \Drupal\aws_sqs_entity\Entity\CrudQueue {}
-   * // Creating a queue sets the queue_class_$name variable.
-   * $queue = new \CustomCrud('aws_test', 'us-east-2');
-   * // Getting the queue as an instance of the initially called class.
-   * $queue = DrupalQueue::get('aws_test');
-   * @endcode
-   *
-   * Note that currently the way aws_sqs.module handles this is to allow
-   * overriding the global queue_default_class variable. But this is overkill as
-   * a Drupal site may want to use multiple types of queues.
-   *
-   * @todo Create a d.o patch to include this functionality in aws_sqs.module.
-   *
-   * @see DrupalQueue::get()
    */
   public function __construct($name) {
-    // @todo Return fully namespaced class name, and be sure DrupalQueue::get()
-    //   calls it properly.
-    variable_set('queue_class_' . $name, get_called_class());
-
     parent::__construct($name);
   }
 
   /**
-   * Returns a CrudQueue object.
+   * Returns a CrudQueue object loaded with Entity CRUD information.
    *
-   * Note this overrides \AwsSqsQueue::get() to add our module specific logic.
-   * We also add logic here instead of overloading the constructor because we
-   * can get the queue name ourselves, so it's unnecessary to ask modules to
-   * pass in the required $name param to construct the queue class manually.
+   * @todo Ensure the CrudQueue class is always be created with this method so
+   *   that it is properly loaded with Entity CRUD info. As long as this class
+   *   extends \AwsSqsQueue we can not protect the constructor method, and do
+   *   not want to (it would need to be called by DrupalQueue::get()).
+   *
+   *   We might instead change our approach entirely, and use this class as a
+   *   wrapper, only to encapsulate our module's logic. If so, we could always
+   *   set queue_class_$name variable to AwsSqsQueue when our wrapper is called.
+   *
+   * Additionally sets queue_class_$name during queue creation when this class
+   * (or any class that extends it) is called using CrudQueue::getQueue(). We do
+   * not set this variable in __construct() because it must be set before
+   * DrupalQueue::get() (which in turn uses our class defined in that variable).
+   * Note that currently the way aws_sqs.module handles this is to allow
+   * overriding the global queue_default_class variable. But that is overkill as
+   * a Drupal site may want to use multiple types of queues. Our getQueue()
+   * method allows that.
+   * @todo Create a d.o patch with similar functionality for aws_sqs.module.
    *
    * @param string $type
    *   The Entity type.
@@ -95,11 +83,14 @@ class CrudQueue extends \AwsSqsQueue {
    *
    * @return \Drupal\aws_sqs_entity\Entity\CrudQueue|false
    *
-   * @see createQueue()
-   * @see createItem()
+   * @see DrupalQueue::get()
    */
   static public function getQueue($type, $entity, $op) {
     if ($name = variable_get('aws_sqs_entity_queue_name')) {
+      // Our calling class must be set as the value of queue_class_$name
+      // variable before calling DrupalQueue::get() below. Otherwise get() will
+      // return SystemQueue or a class defined by queue_default_class variable.
+      variable_set('queue_class_' . $name, get_called_class());
       $queue = \DrupalQueue::get($name);
       if ($queue instanceof CrudQueue) {
         $queue->type = $type;
