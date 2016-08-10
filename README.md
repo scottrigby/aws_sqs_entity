@@ -13,6 +13,6 @@ Installation & Setup
 2. Set the AWS SQS Entity queue name. This can be done either:
     - With drush: `drush vset aws_sqs_entity_queue_name YOUR_QUEUE_NAME`
     - In your settings file: `$conf['aws_sqs_entity_queue_name'] = 'YOUR_QUEUE_NAME';`
-    - Using the settings form (coming soon).
+    - Using the settings form at admin/config/system/aws-sqs-entity.
 3. Set rules for your allowed list of Entity types, bundles, and CRUD operations.
     - Similar options as above. See `\Drupal\aws_sqs_entity\Entity\CrudQueue::setRules()` for documentation.

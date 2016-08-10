@@ -1,4 +1,5 @@
 name = Amazon SQS Entity
 description = Exposes Drupal entities to AWS SQS through Entity CRUD operations.
 dependencies[] = aws_sqs
+configure = admin/config/system/aws-sqs-entity
 core = 7.x
