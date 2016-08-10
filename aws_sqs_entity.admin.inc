@@ -119,7 +119,13 @@ function aws_sqs_entity_settings_rules_to_array($input) {
   // Allow for comma-separation or one on each line.
   $lines = preg_split( '/\R|,/', $input);
   foreach ($lines as $line) {
-    list($type, $bundle, $op) = explode(':', trim($line));
+    // Handle blank lines and spaces.
+    $line = trim($line);
+    if (empty($line)) {
+      continue;
+    }
+
+    list($type, $bundle, $op) = explode(':', $line);
     $rules[$type][$bundle][] = $op;
   }
 
