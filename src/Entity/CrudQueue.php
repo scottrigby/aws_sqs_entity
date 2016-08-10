@@ -183,7 +183,7 @@ class CrudQueue extends \AwsSqsQueue {
   public function checkRules() {
     $rules = CrudQueue::getRules();
     list(,, $bundle) = entity_extract_ids($this->type, $this->entity);
-    return !empty($rules[$this->type][$bundle]) && in_array($this->op, $rules[$this->type][$bundle][$this->op]);
+    return !empty($rules[$this->type][$bundle]) && in_array($this->op, $rules[$this->type][$bundle]);
   }
 
 }
