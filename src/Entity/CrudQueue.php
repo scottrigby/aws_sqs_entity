@@ -133,6 +133,26 @@ class CrudQueue extends \AwsSqsQueue {
       // Pass original keys to notification hook. This hook could allow, for
       // example, various kinds of reporting.
       module_invoke_all('aws_sqs_entity_send_item', $this->type, $this->entity, $this->op);
+
+      if (variable_get('aws_sqs_entity_display_message')) {
+        list($id,, $bundle) = entity_extract_ids($this->type, $this->entity);
+        $vars = array(
+          '%label' => entity_label($this->type, $this->entity),
+          '%type' => $this->type,
+          '%id' => $id,
+          '%bundle' => $bundle,
+          '%op' => $this->op,
+          '%queue_name' => $this->getName()
+        );
+        drupal_set_message(t(variable_get('aws_sqs_entity_display_message_pattern', ''), $vars));
+      }
+      $created = TRUE;
+    }
+
+    if (variable_get('aws_sqs_entity_debug')) {
+      $vars['queue_name'] = $this->getName();
+      $message = !empty($created) ? t('Success: An AWS SQS item was created in queue %queue_name:', $vars) : t('Failure: An AWS SQS item was not created in queue %queue_name:', $vars);
+      watchdog('aws_sqs_entity', $message . '<pre>' . print_r($data, TRUE) . '</pre>');
     }
 
     return $result;

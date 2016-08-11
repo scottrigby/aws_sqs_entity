@@ -24,12 +24,42 @@ function aws_sqs_entity_settings($form, &$form_state) {
   $form['aws_sqs_entity_rules'] = array(
     '#type' => 'textarea',
     '#title' => t('AWS SQS Entity rules'),
+    // This could be longer, but is likely to be more than the default 6.
+    '#rows' => 10,
     '#default_value' => aws_sqs_entity_settings_to_string($rules),
     '#description' => t('Configure the list of Entity types, bundles, and CRUD operations
    which should trigger an AWS SQS message. Each list item can be comma
    separated and/or on a new line, and should follow the pattern
    <code>ENTITY_TYPE:BUNDLE:CRUD_OPERATION</code> (where allowed Entity CRUD
    operations are: insert, update, delete).'),
+  );
+
+  $form['aws_sqs_entity_display_message'] = array(
+    '#type' => 'checkbox',
+    '#default_value' => variable_get('aws_sqs_entity_display_message', 0),
+    '#title' => t('Display a friendly message informing editors that Entity CRUD items were added to the Queue.'),
+  );
+
+  $default = t('An AWS SQS item has been created in the Queue %queue_name for %label (Entity type: %type, ID: %id, Bundle: %bundle), for CRUD operation: %op.');
+  $form['aws_sqs_entity_display_message_pattern'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Display message pattern'),
+    // The default message is too big for textfield, but likely won't be more
+    // than 2 lines.
+    '#rows' => 2,
+    '#default_value' => variable_get('aws_sqs_entity_display_message_pattern', $default),
+    '#description' => t('Replacement tokens are %label (the Entity label), %type (the Entity type), %bundle (the Entity Bundle), %op (the Entity CRUD operation, %queue_name (the AWS SQS Entity queue name).'),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="aws_sqs_entity_display_message"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+
+  $form['aws_sqs_entity_debug'] = array(
+    '#type' => 'checkbox',
+    '#default_value' => variable_get('aws_sqs_entity_debug', 0),
+    '#title' => t('Send verbose debug information to watchdog.'),
   );
 
   $form['submit'] = array('#type' => 'submit', '#value' => t('Save configuration'));
@@ -89,7 +119,16 @@ function aws_sqs_entity_settings_validate($form, &$form_state) {
  * @see aws_sqs_entity_settings_validate()
  */
 function aws_sqs_entity_settings_submit($form, &$form_state) {
-  variable_set('aws_sqs_entity_queue_name', $form_state['values']['aws_sqs_entity_queue_name']);
+  $variables = array(
+    'aws_sqs_entity_queue_name',
+    'aws_sqs_entity_display_message',
+    'aws_sqs_entity_display_message_pattern',
+    'aws_sqs_entity_debug',
+  );
+  foreach ($variables as $name) {
+    $value = $form_state['values'][$name];
+    variable_set($name, $value);
+  }
 
   $rules = $form_state['values']['aws_sqs_entity_rules_array'];
   variable_set('aws_sqs_entity_rules', $rules);
