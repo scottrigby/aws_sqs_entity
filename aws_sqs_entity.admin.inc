@@ -12,7 +12,11 @@
  * @see aws_sqs_entity_settings_submit()
  */
 function aws_sqs_entity_settings($form, &$form_state) {
-  $form['aws_sqs_entity_queue_name'] = array(
+  $form['queue'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Queue settings'),
+  );
+  $form['queue']['aws_sqs_entity_queue_name'] = array(
     '#type' => 'textfield',
     '#title' => t('AWS SQS Entity queue name'),
     '#default_value' => variable_get('aws_sqs_entity_queue_name', ''),
@@ -20,8 +24,12 @@ function aws_sqs_entity_settings($form, &$form_state) {
     '#description' => t('AWS SQS Entity queue name.'),
   );
 
+  $form['rules'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Rules'),
+  );
   $rules = variable_get('aws_sqs_entity_rules', array());
-  $form['aws_sqs_entity_rules'] = array(
+  $form['rules']['aws_sqs_entity_rules'] = array(
     '#type' => 'textarea',
     '#title' => t('AWS SQS Entity rules'),
     // This could be longer, but is likely to be more than the default 6.
@@ -34,14 +42,17 @@ function aws_sqs_entity_settings($form, &$form_state) {
    operations are: insert, update, delete).'),
   );
 
-  $form['aws_sqs_entity_display_message'] = array(
+  $form['messages'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Messages'),
+  );
+  $form['messages']['aws_sqs_entity_display_message'] = array(
     '#type' => 'checkbox',
     '#default_value' => variable_get('aws_sqs_entity_display_message', 0),
     '#title' => t('Display a friendly message informing editors that Entity CRUD items were added to the Queue.'),
   );
-
   $default = t('An AWS SQS item has been created in the Queue %queue_name for %label (Entity type: %type, ID: %id, Bundle: %bundle), for CRUD operation: %op.');
-  $form['aws_sqs_entity_display_message_pattern'] = array(
+  $form['messages']['aws_sqs_entity_display_message_pattern'] = array(
     '#type' => 'textarea',
     '#title' => t('Display message pattern'),
     // The default message is too big for textfield, but likely won't be more
@@ -56,7 +67,11 @@ function aws_sqs_entity_settings($form, &$form_state) {
     ),
   );
 
-  $form['aws_sqs_entity_debug'] = array(
+  $form['debugging'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Debugging'),
+  );
+  $form['debugging']['aws_sqs_entity_debug'] = array(
     '#type' => 'checkbox',
     '#default_value' => variable_get('aws_sqs_entity_debug', 0),
     '#title' => t('Send verbose debug information to watchdog.'),
