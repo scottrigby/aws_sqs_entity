@@ -6,6 +6,8 @@
 
 namespace Drupal\aws_sqs_entity\Entity;
 
+use Aws\Sqs\SqsClient;
+
 /**
  * Class CrudQueue
  * @package Drupal\aws_sqs_entity\Entity
@@ -34,6 +36,24 @@ class CrudQueue extends \AwsSqsQueue {
    *   - delete
    */
   protected $op;
+
+  /**
+   * @var array $messageAttributes
+   *   An Associative array of <String> keys mapping to (associative-array)
+   *   values. Each array key should be changed to an appropriate <String>. Each
+   *   message attribute consists of a Name, Type, and Value.
+   *
+   * For more information, see @link http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/SQSMessageAttributes.html#SQSMessageAttributesNTV Message Attribute Items. @endlink
+   */
+  protected $messageAttributes;
+
+  /**
+   * Needed for createItem() override for MessageAttributes.
+   *
+   * @see createItem()
+   */
+  private $client;
+  private $queueUrl;
 
   /**
    * {@inheritdoc}
@@ -97,11 +117,56 @@ class CrudQueue extends \AwsSqsQueue {
         $queue->entity = $entity;
         $queue->op = $op;
 
+        // Set message attributes.
+        $queue->setMessageAttribute('entityType', 'String', 'StringValue', $type);
+        switch ($op) {
+          case 'insert':
+          case 'update':
+            $queue->setMessageAttribute('action', 'String', 'StringValue', 'post');
+            break;
+          case 'update':
+            $queue->setMessageAttribute('action', 'String', 'StringValue', 'delete');
+            break;
+        }
+
         return $queue;
       }
     }
 
     return FALSE;
+  }
+
+  /**
+   * Adds an AWS SQS queue item message attribute to the $messageAttributes var.
+   *
+   * Name, type, and value must not be empty or null. In addition, the message
+   * body should not be empty or null. All parts of the message attribute,
+   * including name, type, and value, are included in the message size
+   * restriction, which is currently 256 KB (262,144 bytes).
+   *
+   * @param string $key
+   *   Custom attribute key name.
+   * @param string $dataType
+   *   Amazon SQS supports the following logical data types: String, Number, and
+   *   Binary. In addition, you can append your own custom labels:
+   *   - String.<Custom Type> (Optional)
+   *   - Number.<Custom Type> (Optional)
+   *   - Binary.<Custom Type> (Optional)
+   * @param string $valueType
+   *   Can be one of:
+   *   - StringValue: (string) Strings are Unicode with UTF8 binary encoding.
+   *   - BinaryValue: (string) Binary type attributes can store any binary data,
+   *     for example, compressed data, encrypted data, or images.
+   * @param string $value
+   *
+   * @see $messageAttributes
+   */
+  protected function setMessageAttribute($key, $dataType, $valueType, $value) {
+    $this->messageAttributes[$key] = array(
+      $valueType => $value,
+      // DataType is required.
+      'DataType' => $dataType,
+    );
   }
 
   /**
@@ -124,8 +189,8 @@ class CrudQueue extends \AwsSqsQueue {
     // This hook could allow, for example, transforming Drupal's internal Entity
     // schema into a different expected schema.
     // @todo Implement this alter hook for Entity data => API schema mapping.
-    $data = array($this->type, $this->entity, $this->op);
-    drupal_alter('aws_sqs_entity_send_item', $data);
+    $data = clone $this->entity;
+    drupal_alter('aws_sqs_entity_send_item', $data, $this->type, $this->op);
 
     // Always a required step before attempting to create a queue item.
     $this->createQueue();
@@ -156,6 +221,52 @@ class CrudQueue extends \AwsSqsQueue {
     }
 
     return $result;
+  }
+
+  /**
+   * {@inheritdoc}
+   *
+   * Overrides parent method to allow setting MessageAttributes.
+   *
+   * @todo Patch aws_sqs module to allow setting MessageAttributes.
+   *
+   * See @link http://docs.aws.amazon.com/aws-sdk-php/v2/api/class-Aws.Sqs.SqsClient.html#_sendMessage SqsClient sendMessage Basic formatting example. @endlink
+   *
+   * @see \AwsSqsQueue::createItem()
+   */
+  public function createItem($data) {
+
+    // Encapsulate our data
+    $serialized_data = $this->serialize($data);
+
+    // Check to see if someone is trying to save an item originally retrieved
+    // from the queue. If so, this really should have been submitted as
+    // $item->data, not $item. Reformat this so we don't save metadata or
+    // confuse item_ids downstream.
+    if (is_object($data) && property_exists($data, 'data') && property_exists($data, 'item_id')) {
+      $text = t('Do not re-queue whole items retrieved from the SQS queue. This included metadata, like the item_id. Pass $item->data to createItem() as a parameter, rather than passing the entire $item. $item->data is being saved. The rest is being ignored.');
+      $data = $data->data;
+      watchdog('aws_sqs', $text, array(), WATCHDOG_ERROR);
+    }
+
+    // @todo Add a check here for message size? Log it?
+
+    // Create a new message object
+    //$result = $this->client->sendMessage(array(
+    //  'QueueUrl'    => $this->queueUrl,
+    //  'MessageBody' => $serialized_data,
+    //));
+    // Add MessageAttributes - the only reason we're overriding this method.
+    $args = array(
+      'QueueUrl'    => $this->queueUrl,
+      'MessageBody' => $serialized_data,
+    );
+    if (!empty($this->messageAttributes)) {
+      $args['MessageAttributes'] = $this->messageAttributes;
+    }
+    $result = $this->client->sendMessage($args);
+
+    return (bool) $result;
   }
 
   /**
