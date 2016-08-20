@@ -48,14 +48,6 @@ class CrudQueue extends \AwsSqsQueue {
   protected $messageAttributes;
 
   /**
-   * Needed for createItem() override for MessageAttributes.
-   *
-   * @see createItem()
-   */
-  private $client;
-  private $queueUrl;
-
-  /**
    * {@inheritdoc}
    *
    * This method should not be called directly. Instead, use getQueue().
@@ -258,13 +250,13 @@ class CrudQueue extends \AwsSqsQueue {
     //));
     // Add MessageAttributes - the only reason we're overriding this method.
     $args = array(
-      'QueueUrl'    => $this->queueUrl,
+      'QueueUrl'    => $this->getQueueUrl(),
       'MessageBody' => $serialized_data,
     );
     if (!empty($this->messageAttributes)) {
       $args['MessageAttributes'] = $this->messageAttributes;
     }
-    $result = $this->client->sendMessage($args);
+    $result = $this->getClient()->sendMessage($args);
 
     return (bool) $result;
   }
