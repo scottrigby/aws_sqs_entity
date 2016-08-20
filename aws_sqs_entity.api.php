@@ -13,18 +13,17 @@
 /**
  * Allows modules to respond after an item is sent to the AWS Queue.
  *
- * @param array $data
- *   An associative array of SQS message data, by reference. Contains:
- *   - type: The Entity type.
- *   - entity: The Entity object.
- *   - op: The Entity CRUD operation. Can be one of:
- *     - insert
- *     - update
- *     - delete
+ * @param object $entity
+ *   A clone of the Entity object, used as SQS queue item message body.
+ * @param string $type
+ *   The Entity type.
+ * @param string $op
+ *   The Entity CRUD operation. Can be one of:
+ *   - insert
+ *   - update
+ *   - delete
  */
-function hook_aws_sqs_entity_send_item_alter(&$data) {
-  // Example: Add a custom key value pair to the object.
-  list($type, $entity, $op) = $data;
+function hook_aws_sqs_entity_send_item_alter(&$entity, $type, $op) {
   $entity->my_key = my_value_callback($type, $entity, $op);
 }
 
