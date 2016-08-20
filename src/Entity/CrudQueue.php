@@ -206,4 +206,38 @@ class CrudQueue extends \AwsSqsQueue {
     return !empty($rules[$this->type][$bundle]) && in_array($this->op, $rules[$this->type][$bundle]);
   }
 
+  /**
+   * {@inheritdoc}
+   *
+   * Allows configuring serialization strategy, using the Drupal variable
+   * aws_sqs_entity_serialize_callback. Defaults to JSON for interoperability
+   * with external systems, or to the parent method if a non-callable variable
+   * is set.
+   *
+   * @see \AwsSqsQueue::serialize()
+   * @see CrudQueue::unserialize()
+   */
+  protected static function serialize($data) {
+    $name = 'aws_sqs_entity_serialize_callback';
+    $default = 'drupal_json_encode';
+    return ($callback = variable_get($name, $default)) && is_callable($callback) ? $callback($data) : parent::serialize($data);
+  }
+
+  /**
+   * {@inheritdoc}
+   *
+   * Allows configuring serialization strategy, using the Drupal variable
+   * aws_sqs_entity_unserialize_callback. Defaults to JSON for interoperability
+   * with external systems, or to the parent method if a non-callable variable
+   * is set.
+   *
+   * @see \AwsSqsQueue::serialize()
+   * @see CrudQueue::serialize()
+   */
+  protected static function unserialize($data) {
+    $name = 'aws_sqs_entity_unserialize_callback';
+    $default = 'drupal_json_decode';
+    return ($callback = variable_get($name, $default)) && is_callable($callback) ? $callback($data) : parent::unserialize($data);
+  }
+
 }
