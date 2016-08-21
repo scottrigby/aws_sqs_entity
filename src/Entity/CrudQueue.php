@@ -116,7 +116,7 @@ class CrudQueue extends \AwsSqsQueue {
           case 'update':
             $queue->setMessageAttribute('action', 'String', 'StringValue', 'post');
             break;
-          case 'update':
+          case 'delete':
             $queue->setMessageAttribute('action', 'String', 'StringValue', 'delete');
             break;
         }
