@@ -6,8 +6,6 @@
 
 namespace Drupal\aws_sqs_entity\Entity;
 
-use Aws\Sqs\SqsClient;
-
 /**
  * Class CrudQueue
  * @package Drupal\aws_sqs_entity\Entity
