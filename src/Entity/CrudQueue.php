@@ -342,6 +342,10 @@ class CrudQueue extends \AwsSqsQueue {
    * with external systems, or to the parent method if a non-callable variable
    * is set.
    *
+   * @todo Add option to pass args, for example:
+   *   @code json_encode($data, JSON_PRETTY_PRINT) @endcode. Sadly
+   *   drupal_json_encode() does not include a JSON_PRETTY_PRINT option.
+   *
    * @see \AwsSqsQueue::serialize()
    * @see CrudQueue::unserialize()
    */
