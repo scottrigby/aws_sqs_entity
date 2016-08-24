@@ -71,10 +71,33 @@ function aws_sqs_entity_settings($form, &$form_state) {
     '#type' => 'fieldset',
     '#title' => t('Debugging'),
   );
-  $form['debugging']['aws_sqs_entity_debug'] = array(
+  $form['debugging']['aws_sqs_entity_debug_watchdog'] = array(
     '#type' => 'checkbox',
-    '#default_value' => variable_get('aws_sqs_entity_debug', 0),
+    '#default_value' => variable_get('aws_sqs_entity_debug_watchdog', 0),
     '#title' => t('Send verbose debug information to watchdog.'),
+  );
+  $form['debugging']['aws_sqs_entity_debug_message'] = array(
+    '#type' => 'checkbox',
+    '#default_value' => variable_get('aws_sqs_entity_debug_message', 0),
+    '#title' => t('Display verbose debug information to the screen.'),
+  );
+
+
+  $debug_message_styles['drupal_set_message'] = t('Drupal message');
+  if ($devel_enabled = module_exists('devel')) {
+    $debug_message_styles['dpm'] = t('Devel DPM');
+  }
+  $form['debugging']['aws_sqs_entity_debug_message_style'] = array(
+    '#type' => 'radios',
+    '#title' => t('Debug message style'),
+    '#default_value' => variable_get('aws_sqs_entity_debug_message_style', 'drupal_set_message'),
+    '#options' => $debug_message_styles,
+    '#description' => $devel_enabled ? t('Choose between standard Drupal message, and Devel DPM.') : t('If you enable the Devel module, you will be able to choose between standard Drupal message, and Devel DPM.'),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="aws_sqs_entity_debug_message"]' => array('checked' => TRUE),
+      ),
+    ),
   );
 
   $form['submit'] = array('#type' => 'submit', '#value' => t('Save configuration'));
@@ -138,7 +161,9 @@ function aws_sqs_entity_settings_submit($form, &$form_state) {
     'aws_sqs_entity_queue_name',
     'aws_sqs_entity_display_message',
     'aws_sqs_entity_display_message_pattern',
-    'aws_sqs_entity_debug',
+    'aws_sqs_entity_debug_watchdog',
+    'aws_sqs_entity_debug_message',
+    'aws_sqs_entity_debug_message_style',
   );
   foreach ($variables as $name) {
     $value = $form_state['values'][$name];

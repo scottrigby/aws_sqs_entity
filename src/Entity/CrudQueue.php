@@ -204,7 +204,26 @@ class CrudQueue extends \AwsSqsQueue {
       $created = TRUE;
     }
 
-    if (variable_get('aws_sqs_entity_debug')) {
+    // @todo Also log a failed result. Right now, the debug messages assume a
+    //   successful result.
+
+    if (variable_get('aws_sqs_entity_debug_message')) {
+      switch (variable_get('aws_sqs_entity_debug_message_style')) {
+        case 'drupal_set_message':
+          drupal_set_message('<pre>' . print_r($data, TRUE) . '</pre>');
+          break;
+        case 'dpm':
+          if (module_exists('devel')) {
+            dpm($data);
+          }
+          else {
+            drupal_set_message(t('You have selected Devel DPM for Debug message style, but the Devel module is no longer enabled.'), 'warning');
+          }
+          break;
+      }
+    }
+
+    if (variable_get('aws_sqs_entity_debug_watchdog')) {
       $vars['queue_name'] = $this->getName();
       $message = !empty($created) ? t('Success: An AWS SQS item was created in queue %queue_name:', $vars) : t('Failure: An AWS SQS item was not created in queue %queue_name:', $vars);
       watchdog('aws_sqs_entity', $message . '<pre>' . print_r($data, TRUE) . '</pre>');
