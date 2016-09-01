@@ -118,9 +118,30 @@ taxonomy_term:
  * @see aws_sqs_entity_settings_submit()
  */
 function aws_sqs_entity_settings_validate($form, &$form_state) {
-  $input = $form_state['values']['aws_sqs_entity_rules'];
-  $rules = aws_sqs_entity_yaml_parse($input);
+  $rules = aws_sqs_entity_yaml_parse($form_state['values']['aws_sqs_entity_rules']);
+  if ($messages = aws_sqs_entity_validate_rules($rules)) {
+    form_set_error('aws_sqs_entity_rules', theme('item_list', array('items' => $messages)));
+  }
+  else {
+    $form_state['values']['aws_sqs_entity_rules_array'] = $rules;
+  }
+}
 
+/**
+ * Validates AWS SQS Entity Rules configuration.
+ *
+ * @param array $rules
+ *   An associative array of AWS SQS Entity rules.
+ *
+ * @todo Move this validation to CrudQueue class. It could return an array of
+ *   failure messages.
+ *
+ * @return array
+ *   An array of validation error messages.
+ *
+ * @see \Drupal\aws_sqs_entity\Entity\CrudQueue::setRules()
+ */
+function aws_sqs_entity_validate_rules($rules) {
   $info = entity_get_info();
 
   $messages = array();
@@ -146,11 +167,7 @@ function aws_sqs_entity_settings_validate($form, &$form_state) {
     }
   }
 
-  if (!empty($messages)) {
-    form_set_error('aws_sqs_entity_rules', theme('item_list', array('items' => $messages)));
-  }
-
-  $form_state['values']['aws_sqs_entity_rules_array'] = $rules;
+  return $messages;
 }
 
 /**
