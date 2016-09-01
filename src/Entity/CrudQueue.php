@@ -318,7 +318,7 @@ class CrudQueue extends \AwsSqsQueue {
    * @see setRules()
    */
   public static function getRules() {
-    return variable_get('aws_sqs_entity_rules');
+    return variable_get('aws_sqs_entity_rules', array());
   }
 
   /**
