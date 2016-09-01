@@ -34,12 +34,18 @@ function aws_sqs_entity_settings($form, &$form_state) {
     '#title' => t('AWS SQS Entity rules'),
     // This could be longer, but is likely to be more than the default 6.
     '#rows' => 10,
-    '#default_value' => aws_sqs_entity_settings_to_string($rules),
-    '#description' => t('Configure the list of Entity types, bundles, and CRUD operations
-   which should trigger an AWS SQS message. Each list item can be comma
-   separated and/or on a new line, and should follow the pattern
-   <code>ENTITY_TYPE:BUNDLE:CRUD_OPERATION</code> (where allowed Entity CRUD
-   operations are: insert, update, delete).'),
+    '#default_value' => aws_sqs_entity_yaml_dump($rules),
+    '#description' => t('Configure the list of Entity types, bundles, and CRUD
+   operations which should trigger an AWS SQS message. This should be an array
+   of CRUD operations (insert, update and/or delete), keyed by bundle and Entity
+   type, following <a href="@yaml-format">YAML</a> format. Example:
+<pre><code>
+node:
+    page: [insert, update, delete]
+    article: [insert, update]
+taxonomy_term:
+    tags: [insert, update, delete]
+</code></pre>', array('@yaml-format' => 'http://symfony.com/doc/current/components/yaml/yaml_format.html#collections')),
   );
 
   $form['messages'] = array(
@@ -113,7 +119,7 @@ function aws_sqs_entity_settings($form, &$form_state) {
  */
 function aws_sqs_entity_settings_validate($form, &$form_state) {
   $input = $form_state['values']['aws_sqs_entity_rules'];
-  $rules = aws_sqs_entity_settings_rules_to_array($input);
+  $rules = aws_sqs_entity_yaml_parse($input);
 
   $info = entity_get_info();
 
@@ -177,59 +183,33 @@ function aws_sqs_entity_settings_submit($form, &$form_state) {
 /**
  * Converts config text to the expected rules array format.
  *
- * @param string $input
- *   One or more config strings, separated by a new line or comma, each
- *   containing colon separated values following the pattern
- *   ENTITY:BUNDLE:CRUD_OPERATION, where allowed Entity CRUD operations are:
- *   - insert
- *   - update
- *   - delete
+ * @param string $string
+ *   A YAML-formatted config string, representing an associative array.
  *
  * @return array
- *   An array of AWS SQS Entity rules, in the format expected by
- *   \Drupal\aws_sqs_entity\Entity\CrudQueue::setRules().
+ *   An associative array.
  *
- * @see \Drupal\aws_sqs_entity\Entity\CrudQueue::setRules()
- * @see aws_sqs_entity_settings_to_string()
+ * @see aws_sqs_entity_yaml_parse()
  */
-function aws_sqs_entity_settings_rules_to_array($input) {
-  $rules = array();
-
-  // Allow for comma-separation or one on each line.
-  $lines = preg_split( '/\R|,/', $input);
-  foreach ($lines as $line) {
-    // Handle blank lines and spaces.
-    $line = trim($line);
-    if (empty($line)) {
-      continue;
-    }
-
-    list($type, $bundle, $op) = explode(':', $line);
-    $rules[$type][$bundle][] = $op;
-  }
-
-  return $rules;
+function aws_sqs_entity_yaml_parse($string) {
+  $parser = new \Symfony\Component\Yaml\Parser();
+  $array = $parser->parse($string);
+  return $array;
 }
 
 /**
  * Converts AWS SQS Entity rules array into a human-readable config text string.
  *
- * @param array $rules
- *   See $rules param for aws_sqs_entity_settings_rules_to_array().
+ * @param array $array
+ *   An associative array.
  *
  * @return string
- *   See $input param for aws_sqs_entity_settings_rules_to_array().
+ *   A YAML-formatted config string, representing an associative array.
+ *
+ * @see aws_sqs_entity_yaml_parse()
  */
-function aws_sqs_entity_settings_to_string($rules) {
-  $strings = array();
-
-  foreach ($rules as $type => $bundles) {
-    foreach ($bundles as $bundle => $ops) {
-      foreach ($ops as $op) {
-        $strings[] = "$type:$bundle:$op";
-      }
-    }
-  }
-
-  return join("\n", $strings);
+function aws_sqs_entity_yaml_dump(array $array) {
+  $dumper = new \Symfony\Component\Yaml\Dumper();
+  $string = $dumper->dump($array, 2);
+  return $string;
 }
