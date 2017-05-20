@@ -252,10 +252,6 @@ class CrudQueue extends \AwsSqsQueue {
    * @see \AwsSqsQueue::createItem()
    */
   public function createItem($data) {
-
-    // Encapsulate our data
-    $serialized_data = $this->serialize($data);
-
     // Check to see if someone is trying to save an item originally retrieved
     // from the queue. If so, this really should have been submitted as
     // $item->data, not $item. Reformat this so we don't save metadata or
@@ -265,6 +261,8 @@ class CrudQueue extends \AwsSqsQueue {
       $data = $data->data;
       watchdog('aws_sqs', $text, array(), WATCHDOG_ERROR);
     }
+
+    $serialized_data = $this->serialize($data);
 
     // @todo Add a check here for message size? Log it?
 
