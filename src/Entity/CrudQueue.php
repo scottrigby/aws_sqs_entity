@@ -342,17 +342,29 @@ class CrudQueue extends \AwsSqsQueue {
    * with external systems, or to the parent method if a non-callable variable
    * is set.
    *
-   * @todo Add option to pass args, for example:
-   *   @code json_encode($data, JSON_PRETTY_PRINT) @endcode. Sadly
-   *   drupal_json_encode() does not include a JSON_PRETTY_PRINT option.
+   * @param string $callback
+   *   A configurable serialize callback. Defaults to 'drupal_json_encode'.
+   * @param array $addtl_args
+   *   Additional args to pass to the configurable callback.
+   *
+   * Example usage.
+   * @code
+   * // Sadly drupal_json_encode() doesn't allow a JSON_PRETTY_PRINT option.
+   * $callback = 'json_decode';
+   * $addtl_args = array(JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_PRETTY_PRINT);
+   * CrudQueue::serialize($data, $callback, $addtl_args);
+   * @endcode
+   *
+   * @todo What if the $data arg isn't first arg in the desired callback?
    *
    * @see \AwsSqsQueue::serialize()
    * @see CrudQueue::unserialize()
    */
-  protected static function serialize($data) {
-    $name = 'aws_sqs_entity_serialize_callback';
-    $default = 'drupal_json_encode';
-    return ($callback = variable_get($name, $default)) && is_callable($callback) ? $callback($data) : parent::serialize($data);
+  protected static function serialize($data, $callback = 'drupal_json_decode', $addtl_args = array()) {
+    $callback = variable_get('aws_sqs_entity_serialize_callback', $callback);
+    $addtl_args = variable_get('aws_sqs_entity_serialize_callback_addtl_args', $addtl_args);
+    $args = array_merge(array($data), $addtl_args);
+    return is_callable($callback) ? call_user_func_array($callback, $args) : parent::serialize($data);
   }
 
   /**
@@ -363,13 +375,19 @@ class CrudQueue extends \AwsSqsQueue {
    * with external systems, or to the parent method if a non-callable variable
    * is set.
    *
+   * @param string $callback
+   *   A configurable unserialize callback. Defaults to 'drupal_json_decode'.
+   * @param array $addtl_args
+   *   Additional args to pass to the configurable callback.
+   *
    * @see \AwsSqsQueue::serialize()
    * @see CrudQueue::serialize()
    */
-  protected static function unserialize($data) {
-    $name = 'aws_sqs_entity_unserialize_callback';
-    $default = 'drupal_json_decode';
-    return ($callback = variable_get($name, $default)) && is_callable($callback) ? $callback($data) : parent::unserialize($data);
+  protected static function unserialize($data, $callback = 'drupal_json_decode', $addtl_args = array()) {
+    $callback = variable_get('aws_sqs_entity_unserialize_callback', $callback);
+    $addtl_args = variable_get('aws_sqs_entity_unserialize_callback_addtl_args', $addtl_args);
+    $args = array_merge(array($data), $addtl_args);
+    return is_callable($callback) ? call_user_func_array($callback, $args) : parent::unserialize($data);
   }
 
 }
