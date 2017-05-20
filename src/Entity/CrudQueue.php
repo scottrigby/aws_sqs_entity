@@ -344,13 +344,18 @@ class CrudQueue extends \AwsSqsQueue {
    *   A configurable serialize callback. Defaults to 'drupal_json_encode'.
    * @param array $addtl_args
    *   Additional args to pass to the configurable callback.
+   * @param array $remove_props
+   *   An array of Entity properties that should be removed due to causing a
+   *   problems for the callback.
    *
    * Example usage.
    * @code
    * // Sadly drupal_json_encode() doesn't allow a JSON_PRETTY_PRINT option.
    * $callback = 'json_decode';
    * $addtl_args = array(JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_PRETTY_PRINT);
-   * CrudQueue::serialize($data, $callback, $addtl_args);
+   * // These Entity properties cause recursion errors with json_encode().
+   * $remove_props = array('original', 'entity_revision', 'state_flow');
+   * CrudQueue::serialize($data, $callback, $addtl_args, $remove_props);
    * @endcode
    *
    * @todo What if the $data arg isn't first arg in the desired callback?
@@ -358,10 +363,25 @@ class CrudQueue extends \AwsSqsQueue {
    * @see \AwsSqsQueue::serialize()
    * @see CrudQueue::unserialize()
    */
-  protected static function serialize($data, $callback = 'drupal_json_decode', $addtl_args = array()) {
+  protected static function serialize($data, $callback = 'drupal_json_decode', $addtl_args = array(), $remove_props = array()) {
     $callback = variable_get('aws_sqs_entity_serialize_callback', $callback);
     $addtl_args = variable_get('aws_sqs_entity_serialize_callback_addtl_args', $addtl_args);
     $args = array_merge(array($data), $addtl_args);
+
+    // @todo Consider removing this, and just check in the calling function if
+    //   the return value of this method is empty before trying to send a queue
+    //   message. Gulp will throw an exception if the message is empty. These
+    //   props can be removed in whatever custom module is setting the variable
+    //   by implementing hook_aws_sqs_entity_send_item_alter().
+    // @todo It also may be worth checking json_last_error_msg() in case
+    //   something breaks, and send a useful message to watchdog().
+    $remove_props = variable_get('aws_sqs_entity_serialize_remove_props', $remove_props);
+    foreach ($remove_props as $prop) {
+      if (!empty($data->$prop)) {
+        unset($data->$prop);
+      }
+    }
+
     return is_callable($callback) ? call_user_func_array($callback, $args) : parent::serialize($data);
   }
 
