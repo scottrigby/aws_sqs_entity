@@ -3,7 +3,7 @@
   "description": "Exposes Drupal entities to AWS SQS through Entity CRUD operations.",
   "type": "drupal-module",
   "require": {
-    "symfony/yaml": "2.3.7"
+    "symfony/yaml": "3.2.8"
   },
   "autoload": {
     "psr-4": {
