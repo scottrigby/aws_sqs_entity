@@ -7,6 +7,8 @@
 
 define('AWS_SQS_ENTITY_QUEUE_CLASS_DEFAULT', '\Drupal\aws_sqs_entity\Entity\CrudQueue');
 
+use \Drupal\aws_sqs_entity\Entity\CrudQueue;
+
 /**
  * Implements hook_menu().
  */
@@ -28,8 +30,7 @@ function aws_sqs_entity_menu() {
  */
 function aws_sqs_entity_insert($entity, $type) {
   $op = 'insert';
-  $class = variable_get('aws_sqs_entity_queue_class', AWS_SQS_ENTITY_QUEUE_CLASS_DEFAULT);
-  if ($queue = $class::getQueue($type, $entity, $op)) {
+  if ($queue = CrudQueue::getQueue($type, $entity, $op)) {
     $queue->sendItem();
   }
 }
@@ -39,8 +40,7 @@ function aws_sqs_entity_insert($entity, $type) {
  */
 function aws_sqs_entity_update($entity, $type) {
   $op = 'update';
-  $class = variable_get('aws_sqs_entity_queue_class', AWS_SQS_ENTITY_QUEUE_CLASS_DEFAULT);
-  if ($queue = $class::getQueue($type, $entity, $op)) {
+  if ($queue = CrudQueue::getQueue($type, $entity, $op)) {
     $queue->sendItem();
   }
 }
@@ -50,8 +50,7 @@ function aws_sqs_entity_update($entity, $type) {
  */
 function aws_sqs_entity_delete($entity, $type) {
   $op = 'delete';
-  $class = variable_get('aws_sqs_entity_queue_class', AWS_SQS_ENTITY_QUEUE_CLASS_DEFAULT);
-  if ($queue = $class::getQueue($type, $entity, $op)) {
+  if ($queue = CrudQueue::getQueue($type, $entity, $op)) {
     $queue->sendItem();
   }
 }

@@ -49,37 +49,61 @@ class CrudQueue extends \AwsSqsQueue {
    * {@inheritdoc}
    *
    * This method should not be called directly. Instead, use getQueue().
+   * Otherwise any overridden child class, if configured, would not be called.
    *
-   * Example:
-   * @code
-   * $queue = \Drupal\aws_sqs_entity\Entity\CrudQueue::getQueue($type, $entity, $op);
-   * @endcode
+   * @see \Drupal\aws_sqs_entity\Entity\CrudQueue::getQueue()
    */
-  public function __construct($name) {
+  public function __construct($name, $type, $entity, $op) {
+    $this->type = $type;
+    $this->op = $op;
+    // Clone object so subsequent operations don't manipulate the original
+    // Entity by reference.
+    $this->entity = clone $entity;
+
+    // Set message attributes.
+    $this->setMessageAttribute('entityType', 'String', 'StringValue', $type);
+    switch ($op) {
+      case 'insert':
+      case 'update':
+      $this->setMessageAttribute('action', 'String', 'StringValue', 'post');
+        break;
+      case 'delete':
+        $this->setMessageAttribute('action', 'String', 'StringValue', 'delete');
+        break;
+    }
+
     parent::__construct($name);
   }
 
   /**
-   * Returns a CrudQueue object loaded with Entity CRUD information.
+   * Returns an instance of the configured CrudQueue class object.
    *
-   * @todo Ensure the CrudQueue class is always be created with this method so
-   *   that it is properly loaded with Entity CRUD info. As long as this class
-   *   extends \AwsSqsQueue we can not protect the constructor method, and do
-   *   not want to (it would need to be called by DrupalQueue::get()).
+   * Note we do not call \DrupalQueue::get($name) because it doesn't allow
+   * passing additional params - specifically, the Entity CRUD information we
+   * need. Because of that, there is no need to bother setting the
+   * queue_class_$name Drupal variable.
    *
-   *   We might instead change our approach entirely, and use this class as a
-   *   wrapper, only to encapsulate our module's logic. If so, we could always
-   *   set queue_class_$name variable to AwsSqsQueue when our wrapper is called.
+   * We also do not call \AwsSqsQueue::get($name) because it hard-codes a call
+   * to it's own class. We do not override that method here because we have only
+   * one queue name, which we can retrieve from the Drupal variable
+   * aws_sqs_entity_queue_name here. We also want to pass Entity CRUD
+   * information, which parent::get() doesn't allow.
    *
-   * Additionally sets queue_class_$name during queue creation when this class
-   * (or any class that extends it) is called using CrudQueue::getQueue(). We do
-   * not set this variable in __construct() because it must be set before
-   * DrupalQueue::get() (which in turn uses our class defined in that variable).
-   * Note that currently the way aws_sqs.module handles this is to allow
-   * overriding the global queue_default_class variable. But that is overkill as
-   * a Drupal site may want to use multiple types of queues. Our getQueue()
-   * method allows that.
-   * @todo Create a d.o patch with similar functionality for aws_sqs.module.
+   * Also note that aws_sqs.module attempts to handle this by allowing a global
+   * override of the queue_default_class variable. But that is overkill as
+   * Drupal sites often want to use multiple types of queues. Our getQueue()
+   * method allows for this flexibility.
+   *
+   * The Drupal variable aws_sqs_entity_queue_class can be used to configure the
+   * SQS Entity queue class, because we want to allow modules to extend this
+   * class (rather than stuffing it full of alter hooks). In order to ensure SQS
+   * Entity functionality, the configured class should extend this one.
+   *
+   * Usage example:
+   * @code
+   * variable_set('aws_sqs_entity_queue_class', 'MyCustomCrudsQueue');
+   * $queue = \Drupal\aws_sqs_entity\Entity\CrudQueue::getQueue($type, $entity, $op);
+   * @endcode
    *
    * @param string $type
    *   The Entity type.
@@ -91,41 +115,20 @@ class CrudQueue extends \AwsSqsQueue {
    *   - update
    *   - delete
    *
-   * @return \Drupal\aws_sqs_entity\Entity\CrudQueue|false
+   * @see \Drupal\aws_sqs_entity\Entity\CrudQueue::__construct()
    *
-   * @see DrupalQueue::get()
+   * @return \Drupal\aws_sqs_entity\Entity\CrudQueue|false
    */
   static public function getQueue($type, $entity, $op) {
-    if ($name = variable_get('aws_sqs_entity_queue_name')) {
-      // Our calling class must be set as the value of queue_class_$name
-      // variable before calling DrupalQueue::get() below. Otherwise get() will
-      // return SystemQueue or a class defined by queue_default_class variable.
-      variable_set('queue_class_' . $name, get_called_class());
-      $queue = \DrupalQueue::get($name);
-      if ($queue instanceof CrudQueue) {
-        $queue->type = $type;
-        // Clone object so subsequent operations don't manipulate the original
-        // Entity by reference.
-        $queue->entity = clone $entity;
-        $queue->op = $op;
+    $class = variable_get('aws_sqs_entity_queue_class', AWS_SQS_ENTITY_QUEUE_CLASS_DEFAULT);
+    $name = variable_get('aws_sqs_entity_queue_name');
 
-        // Set message attributes.
-        $queue->setMessageAttribute('entityType', 'String', 'StringValue', $type);
-        switch ($op) {
-          case 'insert':
-          case 'update':
-            $queue->setMessageAttribute('action', 'String', 'StringValue', 'post');
-            break;
-          case 'delete':
-            $queue->setMessageAttribute('action', 'String', 'StringValue', 'delete');
-            break;
-        }
-
-        return $queue;
-      }
+    if (!$class || !$name) {
+      return FALSE;
     }
 
-    return FALSE;
+    // @todo Pass any overloaded args.
+    return new $class($name, $type, $entity, $op);
   }
 
   /**
