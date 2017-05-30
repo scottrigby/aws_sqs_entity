@@ -104,7 +104,9 @@ class CrudQueue extends \AwsSqsQueue {
       $queue = \DrupalQueue::get($name);
       if ($queue instanceof CrudQueue) {
         $queue->type = $type;
-        $queue->entity = $entity;
+        // Clone object so subsequent operations don't manipulate the original
+        // Entity by reference.
+        $queue->entity = clone $entity;
         $queue->op = $op;
 
         // Set message attributes.
@@ -160,6 +162,19 @@ class CrudQueue extends \AwsSqsQueue {
   }
 
   /**
+   * Gets the $messageBody var, for the queue item message body content.
+   *
+   * Override this method if you want to normalize, or otherwise alter the queue
+   * item message body. This could allow, for example, transforming Drupal's
+   * internal Entity schema into a different expected schema.
+   *
+   * @return object
+   */
+  protected function getMessageBody() {
+    return $this->entity;
+  }
+
+  /**
    * Attempt to send an Entity item to the AWS queue.
    *
    * This convenience method wraps various required checks before creating a
@@ -176,14 +191,10 @@ class CrudQueue extends \AwsSqsQueue {
       return FALSE;
     }
 
-    // This hook could allow, for example, transforming Drupal's internal Entity
-    // schema into a different expected schema.
-    // @todo Implement this alter hook for Entity data => API schema mapping.
-    $data = clone $this->entity;
-    drupal_alter('aws_sqs_entity_send_item', $data, $this->type, $this->op);
-
     // Always a required step before attempting to create a queue item.
     $this->createQueue();
+
+    $data = $this->getMessageBody();
     if ($result = $this->createItem($data)) {
       // Pass original keys to notification hook. This hook could allow, for
       // example, various kinds of reporting.
