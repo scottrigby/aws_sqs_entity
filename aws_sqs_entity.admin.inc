@@ -8,6 +8,16 @@
 use \Symfony\Component\Yaml\Yaml;
 
 /**
+ * Defines a message for the AWS SQS Entity queue class override.
+ *
+ * @return \Drupal\Core\StringTranslation\TranslatableMarkup|null|string
+ */
+function aws_sqs_entity_queue_class_message() {
+  $message = t('The optional AWS SQS Entity queue class override must extend %class, and be a fully qualified namespaced class name.', array('%class' => AWS_SQS_ENTITY_QUEUE_CLASS_DEFAULT));
+  return $message;
+}
+
+/**
  * Form constructor for AWS SQS Entity settings.
  *
  * @see aws_sqs_entity_settings_validate()
@@ -24,6 +34,13 @@ function aws_sqs_entity_settings($form, &$form_state) {
     '#default_value' => variable_get('aws_sqs_entity_queue_name', ''),
     '#required' => TRUE,
     '#description' => t('AWS SQS Entity queue name.'),
+  );
+
+  $form['queue']['aws_sqs_entity_queue_class'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Override AWS SQS Entity queue class'),
+    '#default_value' => variable_get('aws_sqs_entity_queue_class', AWS_SQS_ENTITY_QUEUE_CLASS_DEFAULT),
+    '#description' => aws_sqs_entity_queue_class_message(),
   );
 
   $form['rules'] = array(
@@ -126,6 +143,14 @@ function aws_sqs_entity_settings_validate($form, &$form_state) {
   else {
     $form_state['values']['aws_sqs_entity_rules_array'] = $rules;
   }
+
+  // Ensure class override override is a valid class.
+  $name = $form_state['values']['aws_sqs_entity_queue_class'];
+  $class = new ReflectionClass($name);
+  if ($class !== AWS_SQS_ENTITY_QUEUE_CLASS_DEFAULT &&
+    !$class->isSubclassOf(AWS_SQS_ENTITY_QUEUE_CLASS_DEFAULT)) {
+    form_set_error('aws_sqs_entity_queue_class', aws_sqs_entity_queue_class_message());
+  }
 }
 
 /**
@@ -183,6 +208,7 @@ function aws_sqs_entity_validate_rules($rules) {
 function aws_sqs_entity_settings_submit($form, &$form_state) {
   $variables = array(
     'aws_sqs_entity_queue_name',
+    'aws_sqs_entity_queue_class',
     'aws_sqs_entity_display_message',
     'aws_sqs_entity_display_message_pattern',
     'aws_sqs_entity_debug_watchdog',
