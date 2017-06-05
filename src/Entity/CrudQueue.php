@@ -363,7 +363,7 @@ class CrudQueue extends \AwsSqsQueue {
    * @see \AwsSqsQueue::serialize()
    * @see CrudQueue::unserialize()
    */
-  protected static function serialize($data, $callback = 'drupal_json_decode', $addtl_args = array(), $remove_props = array()) {
+  protected static function serialize($data, $callback = 'drupal_json_encode', $addtl_args = array(), $remove_props = array()) {
     $callback = variable_get('aws_sqs_entity_serialize_callback', $callback);
     $addtl_args = variable_get('aws_sqs_entity_serialize_callback_addtl_args', $addtl_args);
     $args = array_merge(array($data), $addtl_args);
