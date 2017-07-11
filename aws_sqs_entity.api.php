@@ -13,23 +13,6 @@
 /**
  * Allows modules to respond after an item is sent to the AWS Queue.
  *
- * @param object $entity
- *   A clone of the Entity object, used as SQS queue item message body.
- * @param string $type
- *   The Entity type.
- * @param string $op
- *   The Entity CRUD operation. Can be one of:
- *   - insert
- *   - update
- *   - delete
- */
-function hook_aws_sqs_entity_send_item_alter(&$entity, $type, $op) {
-  $entity->my_key = my_value_callback($type, $entity, $op);
-}
-
-/**
- * Allows modules to respond after an item is sent to the AWS Queue.
- *
  * @param string $type
  *   The Entity type.
  * @param object $entity

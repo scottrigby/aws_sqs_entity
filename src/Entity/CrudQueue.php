@@ -49,37 +49,61 @@ class CrudQueue extends \AwsSqsQueue {
    * {@inheritdoc}
    *
    * This method should not be called directly. Instead, use getQueue().
+   * Otherwise any overridden child class, if configured, would not be called.
    *
-   * Example:
-   * @code
-   * $queue = \Drupal\aws_sqs_entity\Entity\CrudQueue::getQueue($type, $entity, $op);
-   * @endcode
+   * @see \Drupal\aws_sqs_entity\Entity\CrudQueue::getQueue()
    */
-  public function __construct($name) {
+  public function __construct($name, $type, $entity, $op) {
+    $this->type = $type;
+    $this->op = $op;
+    // Clone object so subsequent operations don't manipulate the original
+    // Entity by reference.
+    $this->entity = clone $entity;
+
+    // Set message attributes.
+    $this->setMessageAttribute('entityType', 'String', 'StringValue', $type);
+    switch ($op) {
+      case 'insert':
+      case 'update':
+      $this->setMessageAttribute('action', 'String', 'StringValue', 'post');
+        break;
+      case 'delete':
+        $this->setMessageAttribute('action', 'String', 'StringValue', 'delete');
+        break;
+    }
+
     parent::__construct($name);
   }
 
   /**
-   * Returns a CrudQueue object loaded with Entity CRUD information.
+   * Returns an instance of the configured CrudQueue class object.
    *
-   * @todo Ensure the CrudQueue class is always be created with this method so
-   *   that it is properly loaded with Entity CRUD info. As long as this class
-   *   extends \AwsSqsQueue we can not protect the constructor method, and do
-   *   not want to (it would need to be called by DrupalQueue::get()).
+   * Note we do not call \DrupalQueue::get($name) because it doesn't allow
+   * passing additional params - specifically, the Entity CRUD information we
+   * need. Because of that, there is no need to bother setting the
+   * queue_class_$name Drupal variable.
    *
-   *   We might instead change our approach entirely, and use this class as a
-   *   wrapper, only to encapsulate our module's logic. If so, we could always
-   *   set queue_class_$name variable to AwsSqsQueue when our wrapper is called.
+   * We also do not call \AwsSqsQueue::get($name) because it hard-codes a call
+   * to it's own class. We do not override that method here because we have only
+   * one queue name, which we can retrieve from the Drupal variable
+   * aws_sqs_entity_queue_name here. We also want to pass Entity CRUD
+   * information, which parent::get() doesn't allow.
    *
-   * Additionally sets queue_class_$name during queue creation when this class
-   * (or any class that extends it) is called using CrudQueue::getQueue(). We do
-   * not set this variable in __construct() because it must be set before
-   * DrupalQueue::get() (which in turn uses our class defined in that variable).
-   * Note that currently the way aws_sqs.module handles this is to allow
-   * overriding the global queue_default_class variable. But that is overkill as
-   * a Drupal site may want to use multiple types of queues. Our getQueue()
-   * method allows that.
-   * @todo Create a d.o patch with similar functionality for aws_sqs.module.
+   * Also note that aws_sqs.module attempts to handle this by allowing a global
+   * override of the queue_default_class variable. But that is overkill as
+   * Drupal sites often want to use multiple types of queues. Our getQueue()
+   * method allows for this flexibility.
+   *
+   * The Drupal variable aws_sqs_entity_queue_class can be used to configure the
+   * SQS Entity queue class, because we want to allow modules to extend this
+   * class (rather than stuffing it full of alter hooks). In order to ensure SQS
+   * Entity functionality, the configured class should extend this one.
+   *
+   * Usage example:
+   * @code
+   * variable_set('aws_sqs_entity_queue_class', 'MyCustomCrudsQueue');
+   * $queue = \Drupal\aws_sqs_entity\Entity\CrudQueue::getQueue($type, $entity, $op);
+   * @endcode
    *
    * @param string $type
    *   The Entity type.
@@ -91,39 +115,20 @@ class CrudQueue extends \AwsSqsQueue {
    *   - update
    *   - delete
    *
-   * @return \Drupal\aws_sqs_entity\Entity\CrudQueue|false
+   * @see \Drupal\aws_sqs_entity\Entity\CrudQueue::__construct()
    *
-   * @see DrupalQueue::get()
+   * @return \Drupal\aws_sqs_entity\Entity\CrudQueue|false
    */
   static public function getQueue($type, $entity, $op) {
-    if ($name = variable_get('aws_sqs_entity_queue_name')) {
-      // Our calling class must be set as the value of queue_class_$name
-      // variable before calling DrupalQueue::get() below. Otherwise get() will
-      // return SystemQueue or a class defined by queue_default_class variable.
-      variable_set('queue_class_' . $name, get_called_class());
-      $queue = \DrupalQueue::get($name);
-      if ($queue instanceof CrudQueue) {
-        $queue->type = $type;
-        $queue->entity = $entity;
-        $queue->op = $op;
+    $class = variable_get('aws_sqs_entity_queue_class', AWS_SQS_ENTITY_QUEUE_CLASS_DEFAULT);
+    $name = variable_get('aws_sqs_entity_queue_name');
 
-        // Set message attributes.
-        $queue->setMessageAttribute('entityType', 'String', 'StringValue', $type);
-        switch ($op) {
-          case 'insert':
-          case 'update':
-            $queue->setMessageAttribute('action', 'String', 'StringValue', 'post');
-            break;
-          case 'delete':
-            $queue->setMessageAttribute('action', 'String', 'StringValue', 'delete');
-            break;
-        }
-
-        return $queue;
-      }
+    if (!$class || !$name) {
+      return FALSE;
     }
 
-    return FALSE;
+    // @todo Pass any overloaded args.
+    return new $class($name, $type, $entity, $op);
   }
 
   /**
@@ -160,6 +165,19 @@ class CrudQueue extends \AwsSqsQueue {
   }
 
   /**
+   * Gets the $messageBody var, for the queue item message body content.
+   *
+   * Override this method if you want to normalize, or otherwise alter the queue
+   * item message body. This could allow, for example, transforming Drupal's
+   * internal Entity schema into a different expected schema.
+   *
+   * @return object
+   */
+  protected function getMessageBody() {
+    return $this->entity;
+  }
+
+  /**
    * Attempt to send an Entity item to the AWS queue.
    *
    * This convenience method wraps various required checks before creating a
@@ -176,14 +194,10 @@ class CrudQueue extends \AwsSqsQueue {
       return FALSE;
     }
 
-    // This hook could allow, for example, transforming Drupal's internal Entity
-    // schema into a different expected schema.
-    // @todo Implement this alter hook for Entity data => API schema mapping.
-    $data = clone $this->entity;
-    drupal_alter('aws_sqs_entity_send_item', $data, $this->type, $this->op);
-
     // Always a required step before attempting to create a queue item.
     $this->createQueue();
+
+    $data = $this->getMessageBody();
     if ($result = $this->createItem($data)) {
       // Pass original keys to notification hook. This hook could allow, for
       // example, various kinds of reporting.
@@ -252,6 +266,10 @@ class CrudQueue extends \AwsSqsQueue {
    * @see \AwsSqsQueue::createItem()
    */
   public function createItem($data) {
+
+    // Encapsulate our data
+    $serialized_data = $this->serialize($data);
+
     // Check to see if someone is trying to save an item originally retrieved
     // from the queue. If so, this really should have been submitted as
     // $item->data, not $item. Reformat this so we don't save metadata or
@@ -261,8 +279,6 @@ class CrudQueue extends \AwsSqsQueue {
       $data = $data->data;
       watchdog('aws_sqs', $text, array(), WATCHDOG_ERROR);
     }
-
-    $serialized_data = $this->serialize($data);
 
     // @todo Add a check here for message size? Log it?
 
@@ -340,49 +356,17 @@ class CrudQueue extends \AwsSqsQueue {
    * with external systems, or to the parent method if a non-callable variable
    * is set.
    *
-   * @param string $callback
-   *   A configurable serialize callback. Defaults to 'drupal_json_encode'.
-   * @param array $addtl_args
-   *   Additional args to pass to the configurable callback.
-   * @param array $remove_props
-   *   An array of Entity properties that should be removed due to causing a
-   *   problems for the callback.
-   *
-   * Example usage.
-   * @code
-   * // Sadly drupal_json_encode() doesn't allow a JSON_PRETTY_PRINT option.
-   * $callback = 'json_decode';
-   * $addtl_args = array(JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_PRETTY_PRINT);
-   * // These Entity properties cause recursion errors with json_encode().
-   * $remove_props = array('original', 'entity_revision', 'state_flow');
-   * CrudQueue::serialize($data, $callback, $addtl_args, $remove_props);
-   * @endcode
-   *
-   * @todo What if the $data arg isn't first arg in the desired callback?
+   * @todo Add option to pass args, for example:
+   *   @code json_encode($data, JSON_PRETTY_PRINT) @endcode. Sadly
+   *   drupal_json_encode() does not include a JSON_PRETTY_PRINT option.
    *
    * @see \AwsSqsQueue::serialize()
    * @see CrudQueue::unserialize()
    */
-  protected static function serialize($data, $callback = 'drupal_json_encode', $addtl_args = array(), $remove_props = array()) {
-    $callback = variable_get('aws_sqs_entity_serialize_callback', $callback);
-    $addtl_args = variable_get('aws_sqs_entity_serialize_callback_addtl_args', $addtl_args);
-    $args = array_merge(array($data), $addtl_args);
-
-    // @todo Consider removing this, and just check in the calling function if
-    //   the return value of this method is empty before trying to send a queue
-    //   message. Gulp will throw an exception if the message is empty. These
-    //   props can be removed in whatever custom module is setting the variable
-    //   by implementing hook_aws_sqs_entity_send_item_alter().
-    // @todo It also may be worth checking json_last_error_msg() in case
-    //   something breaks, and send a useful message to watchdog().
-    $remove_props = variable_get('aws_sqs_entity_serialize_remove_props', $remove_props);
-    foreach ($remove_props as $prop) {
-      if (!empty($data->$prop)) {
-        unset($data->$prop);
-      }
-    }
-
-    return is_callable($callback) ? call_user_func_array($callback, $args) : parent::serialize($data);
+  protected static function serialize($data) {
+    $name = 'aws_sqs_entity_serialize_callback';
+    $default = 'drupal_json_encode';
+    return ($callback = variable_get($name, $default)) && is_callable($callback) ? $callback($data) : parent::serialize($data);
   }
 
   /**
@@ -393,19 +377,13 @@ class CrudQueue extends \AwsSqsQueue {
    * with external systems, or to the parent method if a non-callable variable
    * is set.
    *
-   * @param string $callback
-   *   A configurable unserialize callback. Defaults to 'drupal_json_decode'.
-   * @param array $addtl_args
-   *   Additional args to pass to the configurable callback.
-   *
    * @see \AwsSqsQueue::serialize()
    * @see CrudQueue::serialize()
    */
-  protected static function unserialize($data, $callback = 'drupal_json_decode', $addtl_args = array()) {
-    $callback = variable_get('aws_sqs_entity_unserialize_callback', $callback);
-    $addtl_args = variable_get('aws_sqs_entity_unserialize_callback_addtl_args', $addtl_args);
-    $args = array_merge(array($data), $addtl_args);
-    return is_callable($callback) ? call_user_func_array($callback, $args) : parent::unserialize($data);
+  protected static function unserialize($data) {
+    $name = 'aws_sqs_entity_unserialize_callback';
+    $default = 'drupal_json_decode';
+    return ($callback = variable_get($name, $default)) && is_callable($callback) ? $callback($data) : parent::unserialize($data);
   }
 
 }

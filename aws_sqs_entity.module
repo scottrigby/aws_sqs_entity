@@ -5,6 +5,8 @@
  * Hook implementations for Amazon SQS Entity module.
  */
 
+define('AWS_SQS_ENTITY_QUEUE_CLASS_DEFAULT', '\Drupal\aws_sqs_entity\Entity\CrudQueue');
+
 use \Drupal\aws_sqs_entity\Entity\CrudQueue;
 
 /**
