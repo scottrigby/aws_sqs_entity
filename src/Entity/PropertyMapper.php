@@ -5,6 +5,7 @@ namespace Drupal\aws_sqs_entity\Entity;
 use \Symfony\Component\Yaml\Yaml;
 use \Symfony\Component\Serializer\Serializer;
 use \Symfony\Component\Serializer\Encoder\JsonEncoder;
+use \Drupal\aws_sqs_entity\Normalizer\AbstractEntityValueWrapperNormalizer;
 
 /**
  * Class PropertyMapper
@@ -35,6 +36,11 @@ class PropertyMapper extends CrudQueue {
   protected $config = [];
 
   /**
+   * @var array
+   */
+  protected $normalizers = [];
+
+  /**
    * {@inheritdoc}
    *
    * Additionally instantiate variables on this class needed for schema mapping.
@@ -50,11 +56,12 @@ class PropertyMapper extends CrudQueue {
     $this->setWrapper();
     $this->setBundle();
     $this->setConfig();
+    $this->setNormalizers();
   }
 
   protected function validateClass() {
     if (!module_exists('entity')) {
-      throw new \Exception('Entity API must be enabled to use this class: ' . __CLASS__);
+      throw new \Exception('Entity API must be enabled to use this class.');
     }
   }
 
@@ -85,6 +92,32 @@ class PropertyMapper extends CrudQueue {
         // The first file found wins.
         break;
       }
+    }
+  }
+
+  /**
+   * Sets and validates normalizers.
+   *
+   * From Symfony\Component\Serializer\Serializer->normalize:
+   * > You must register at least one normalizer to be able to normalize
+   *   objects.
+   *
+   * @todo Ensure normalizers extend AbstractEntityValueWrapperNormalizer.
+   *
+   * @see \Symfony\Component\Serializer\Exception\LogicException
+   * @see \Symfony\Component\Serializer\Serializer::normalize
+   */
+  protected function setNormalizers() {
+    $normalizers = module_invoke_all('aws_sqs_entity_value_wrapper_normalizers', $this->wrapper);
+
+    foreach ($normalizers as $normalizer) {
+      if ($normalizer instanceof AbstractEntityValueWrapperNormalizer) {
+        $this->normalizers[] = $normalizer;
+      }
+    }
+
+    if (empty($this->normalizers)) {
+      throw new \Exception('You must must register at least one valid normalizer to use this class. See hook_aws_sqs_entity_value_wrapper_normalizers().');
     }
   }
 
@@ -178,29 +211,44 @@ class PropertyMapper extends CrudQueue {
   /**
    * @param \EntityListWrapper $wrapper
    * @return array
+   *
+   * @todo Will there be cases where an iterated \EntityListWrapper item wrapper
+   *   is not an instance of either \EntityValueWrapper or
+   *   \EntityStructureWrapper? If so, we may want to expose some other way of
+   *   allowing modules to address this. Ultimately though, modules may already
+   *   extend this class with their own logic.
+   *
+   * @see \Symfony\Component\Serializer\Serializer::normalize()
+   * @see \Drupal\aws_sqs_entity\Normalizer\AbstractEntityValueWrapperNormalizer::supportsNormalization()
    */
   protected function EntityListWrapper(\EntityListWrapper $wrapper) {
     $value = [];
     foreach ($wrapper->getIterator() as $delta => $itemWrapper) {
-      $value[$delta] = $itemWrapper->EntityValueWrapper();
+      // If the item wrapper doesn't extend one of these two types, our base
+      // AbstractEntityValueWrapperNormalizer class won't support it.
+      if ($itemWrapper instanceof \EntityValueWrapper || $itemWrapper instanceof \EntityStructureWrapper) {
+        $value[$delta] = $this->EntityValueWrapper($itemWrapper);
+      }
     }
     return $value;
   }
 
   /**
    * @param \EntityValueWrapper $wrapper
-   * @return array|object|\Symfony\Component\Serializer\Normalizer\scalar
+   *   Note this may not always be an instance of EntityValueWrapper. In some
+   *   cases such as a taxonomy_term or entity reference, the value is another
+   *   instance of EntityDrupalWrapper, so let's type hint the parent abstract
+   *   EntityMetadataWrapper.
    *
-   * @todo Ensure normalizers extend AbstractEntityValueWrapperNormalizer.
+   * @return array|object|\Symfony\Component\Serializer\Normalizer\scalar
    */
-  protected function EntityValueWrapper(\EntityValueWrapper $wrapper) {
-    $normalizers = module_invoke_all('hook_aws_sqs_entity_value_wrapper_normalizers', $this->wrapper);
-    $serializer = new Serializer($normalizers, []);
+  protected function EntityValueWrapper(\EntityMetadataWrapper $wrapper) {
+    $serializer = new Serializer($this->normalizers, []);
     $context = [
       'wrapper' => $this->wrapper,
       'config' => $this->config,
     ];
-    return $serializer->normalize($this->wrapper, null, $context);
+    return $serializer->normalize($wrapper, null, $context);
   }
 
   /**

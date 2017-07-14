@@ -25,9 +25,19 @@ class AbstractEntityValueWrapperNormalizer implements NormalizerInterface {
 
   /**
    * {@inheritdoc}
+   *
+   * We must also support instances of EntityStructureWrapper, or item wrappers
+   * for field types such as taxonomy_term or entity references would not be
+   * supported by this normalizer, and get stuck in very deeply nested loops
+   * of the "instanceof \Traversable" check within Serializer::normalize().
+   *
+   * @todo Consider renaming this base class, since we now support not only
+   *   \EntityValueWrapper but now also \EntityStructureWrapper.
+   *
+   * @see \Symfony\Component\Serializer\Serializer::normalize()
    */
   public function supportsNormalization($data, $format = null) {
-    return $data instanceof \EntityValueWrapper;
+    return $data instanceof \EntityValueWrapper || $data instanceof \EntityStructureWrapper;
   }
 
 }
