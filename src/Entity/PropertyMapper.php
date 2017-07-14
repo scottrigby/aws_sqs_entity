@@ -152,7 +152,7 @@ class PropertyMapper extends CrudQueue {
 
       // Now that we have the Drupal Entity field/property, get each field
       // item(s) value.
-      if ($this->fieldExists($field)) {
+      if (isset($this->wrapper->$field)) {
         $value = $this->EntityMetadataWrapper($this->wrapper->$field);
       }
 
