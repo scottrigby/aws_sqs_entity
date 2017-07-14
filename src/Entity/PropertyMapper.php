@@ -188,6 +188,8 @@ class PropertyMapper extends CrudQueue {
   /**
    * @param \EntityValueWrapper $wrapper
    * @return array|object|\Symfony\Component\Serializer\Normalizer\scalar
+   *
+   * @todo Ensure normalizers extend AbstractEntityValueWrapperNormalizer.
    */
   protected function EntityValueWrapper(\EntityValueWrapper $wrapper) {
     $normalizers = module_invoke_all('hook_aws_sqs_entity_value_wrapper_normalizers', $this->wrapper);
