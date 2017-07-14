@@ -3,6 +3,7 @@
   "description": "Exposes Drupal entities to AWS SQS through Entity CRUD operations.",
   "type": "drupal-module",
   "require": {
+    "symfony/serializer": "3.2.8",
     "symfony/yaml": "3.2.8"
   },
   "autoload": {

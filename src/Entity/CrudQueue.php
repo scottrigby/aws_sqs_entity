@@ -184,7 +184,6 @@ class CrudQueue extends \AwsSqsQueue {
    * queue item. If successful, it also invokes hooks.
    *
    * @see hook_aws_sqs_entity_send_item()
-   * @see hook_aws_sqs_entity_send_item_alter()
    *
    * @return bool
    *   TRUE if the item is sent successfully, FALSE otherwise.

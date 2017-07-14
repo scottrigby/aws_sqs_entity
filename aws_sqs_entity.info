@@ -4,3 +4,4 @@ dependencies[] = aws_sqs
 dependencies[] = composer_manager
 configure = admin/config/system/aws-sqs-entity
 core = 7.x
+php = 7
