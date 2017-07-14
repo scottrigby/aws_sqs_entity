@@ -82,8 +82,8 @@ function hook_aws_sqs_entity_property_mapper_config_paths() {
  */
 function hook_aws_sqs_entity_value_wrapper_normalizers() {
   return [
-    '\Drupal\my_module\Normalizer\EndpointOneNormalizer',
-    '\Drupal\my_module\Normalizer\EndpointTwoNormalizer',
+    new \Drupal\my_module\Normalizer\EndpointOneNormalizer(),
+    new \Drupal\my_module\Normalizer\EndpointTwoNormalizer(),
   ];
 }
 
