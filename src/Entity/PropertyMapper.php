@@ -120,7 +120,9 @@ class PropertyMapper extends CrudQueue {
   protected function getMessageBody() {
     $data = [];
 
-    $this->yamlPropertyMapper($this->config['field_map'], $data);
+    if (isset($this->config['field_map'])) {
+      $this->yamlPropertyMapper($this->config['field_map'], $data);
+    }
 
     return $data;
   }
