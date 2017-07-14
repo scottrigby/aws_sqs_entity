@@ -39,7 +39,7 @@ class PropertyMapper extends CrudQueue {
    *
    * Additionally instantiate variables on this class needed for schema mapping.
    */
-  public function __construct(string $name, string $type, \stdClass $entity, string $op) {
+  public function __construct($name, $type, $entity, $op) {
     // Bail now if we don't have Entity API enabled.
     $this->validateClass();
 
@@ -138,7 +138,7 @@ class PropertyMapper extends CrudQueue {
    * @param $data
    *   The return value of getMessageBody().
    */
-  protected function yamlPropertyMapper(array $fields, array &$data) {
+  protected function yamlPropertyMapper($fields, &$data) {
     foreach ($fields as $key => $field) {
       $value = NULL;
 
@@ -212,7 +212,7 @@ class PropertyMapper extends CrudQueue {
    * @see getMessageBody()
    * @see AwsSqsQueue::serialize()
    */
-  protected static function serialize(array $data) {
+  protected static function serialize($data) {
     $serializer = new Serializer([], [new JsonEncoder()]);
     return $serializer->encode($data, 'json');
   }
