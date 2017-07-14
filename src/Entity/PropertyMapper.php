@@ -5,7 +5,6 @@ namespace Drupal\aws_sqs_entity\Entity;
 use \Symfony\Component\Yaml\Yaml;
 use \Symfony\Component\Serializer\Serializer;
 use \Symfony\Component\Serializer\Encoder\JsonEncoder;
-use \Drupal\aws_sqs_entity\Normalizer\EntityMetadataWrapperNormalizer;
 
 /**
  * Class PropertyMapper
@@ -90,14 +89,54 @@ class PropertyMapper extends CrudQueue {
   }
 
   /**
+   * {@inheritdoc}
+   *
+   * Overrides parent method for Entity data => API schema mapping.
+   *
+   * Note we can not use the recursive power of AbstractObjectNormalizer because
+   * it does not know how to handle stdClass objects, nor the magic getters and
+   * setters of EntityMetadataWrapper objects. Instead we handle Entity mapping
+   * recursion ourselves, and invoke a hook for custom normalizers to return a
+   * custom value for each passed EntityValueWrapper.
+   * @see \Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer
+   * @see \EntityValueWrapper
+   * @see \Drupal\aws_sqs_entity\Normalizer\AbstractEntityValueWrapperNormalizer
+   *
+   * Note also that while ::serialize() may seem like the place to do all this
+   * serializer work, we can not get important context information into that
+   * method easily, because:
+   * - ::serialize() must be static due to class inheritance, so we can not
+   *   access $this.
+   * - We can not easily pass context to ::serialize() because it is called by
+   *   AwsSqsQueue::createItem(), which would have to be overwridden just to do
+   *   this (and even then, $context would need to be passed by overloading the
+   *   method, again because of class inheritance). That is a lot of extra code
+   *   to maintain just to keep that method's semantic value here.
+   * Instead we handle the serializer normalizers in this method because it has
+   * access to $this for context, and save ::serialize() for JSON encoding only.
+   *
+   * @see CrudQueue::getMessageBody()
+   */
+  protected function getMessageBody() {
+    $data = [];
+
+    $this->yamlPropertyMapper($this->config['field_map'], $data);
+
+    return $data;
+  }
+
+  /**
    * Iterates over all config keys to find Drupal Entity mapped values.
+   *
+   * Receives config as array, and iterates over each YAML key (recursively, to
+   * handle nested YAML maps).
    *
    * @param $fields
    *   See $field_map param of setConfig().
    * @param $data
    *   The return value of getMessageBody().
    */
-  protected function iterateConfigKeys($fields, &$data) {
+  protected function yamlPropertyMapper($fields, &$data) {
     foreach ($fields as $key => $field) {
       $value = NULL;
 
@@ -105,24 +144,14 @@ class PropertyMapper extends CrudQueue {
       // associative arrays of field values (example, customFields).
       if (!is_string($field) && is_array($field)) {
         $data[$key] = [];
-        $this->iterateConfigKeys($field, $data[$key]);
+        $this->yamlPropertyMapper($field, $data[$key]);
         continue;
       }
 
-      // Now that we have the Drupal Entity field/property, get each field item
-      // delta value.
-      // @todo This does not yet allow properly handling plugin normalization.
-      //   But move one fully working step at a time.
+      // Now that we have the Drupal Entity field/property, get each field
+      // item(s) value.
       if ($this->fieldExists($field)) {
-        if ($this->isListWrapper($field)) {
-          foreach ($this->wrapper->$field->getIterator() as $delta => $itemWrapper) {
-            $value[$delta] = $this->normalizeItemValue($itemWrapper);
-          }
-        }
-        else {
-          // This is an EntityValueWrapper.
-          $value = $this->normalizeItemValue($this->wrapper->$field);
-        }
+        $value = $this->EntityMetadataWrapper($this->wrapper->$field);
       }
 
       $data[$key] = $value;
@@ -130,74 +159,58 @@ class PropertyMapper extends CrudQueue {
   }
 
   /**
-   * @param \EntityMetadataWrapper $itemWrapper
-   *
-   * @todo Discover correct plugins.
+   * @param \EntityMetadataWrapper $wrapper
+   * @return array|object|string|\Symfony\Component\Serializer\Normalizer\scalar
    */
-  protected function normalizeItemValue($itemWrapper) {
-    // @todo Normalize this.
-//    return $itemWrapper->value();
+  protected function EntityMetadataWrapper(\EntityMetadataWrapper $wrapper) {
+    $value = '';
+    if (is_a($wrapper, 'EntityListWrapper')) {
+      $value = $this->EntityListWrapper($wrapper);
+    }
+    elseif (is_a($wrapper, 'EntityValueWrapper')) {
+      $value = $this->EntityValueWrapper($wrapper);
+    }
+    return $value;
+  }
 
-    $normalizers = module_invoke_all('aws_sqs_entity_normalizers', $itemWrapper);
+  /**
+   * @param \EntityListWrapper $wrapper
+   * @return array
+   */
+  protected function EntityListWrapper(\EntityListWrapper $wrapper) {
+    $value = [];
+    foreach ($wrapper->getIterator() as $delta => $itemWrapper) {
+      $value[$delta] = $itemWrapper->EntityValueWrapper();
+    }
+    return $value;
+  }
+
+  /**
+   * @param \EntityValueWrapper $wrapper
+   * @return array|object|\Symfony\Component\Serializer\Normalizer\scalar
+   */
+  protected function EntityValueWrapper(\EntityValueWrapper $wrapper) {
+    $normalizers = module_invoke_all('hook_aws_sqs_entity_value_wrapper_normalizers', $this->wrapper);
     $serializer = new Serializer($normalizers, []);
-    return $serializer->normalize($itemWrapper);
+    $context = [
+      'wrapper' => $this->wrapper,
+      'config' => $this->config,
+    ];
+    return $serializer->normalize($this->wrapper, null, $context);
   }
 
   /**
    * {@inheritdoc}
    *
-   * Overrides parent method for Entity data => API schema mapping.
+   * The $data array keys should match the YAML config map, and contain values
+   * from EntityMetadataWrapper item wrapper ::value() set by each normalizer.
    *
-   * @todo Note that a lot of this work is related to serialization, so sounds
-   *   like it should be in this::serialize(), however the $data param is sent
-   *   to ::serialize, so we would just ignore that entirely. Perhaps that is
-   *   less confusing though, given the fact that Symfony/Component/Serializer
-   *   handles the JSON encoding in the same operation as normalizing.
-   *   Another problem with doing this in ::serialize() is it must be static
-   *   (because of inheritance), which means if it calls ::iterateConfigKeys()
-   *   that would need to be refactored to be static as well. As an alternative,
-   *   we could do all the serializing/normalizing work in this method, and
-   *   ::serialize() could be a straight pass-through. We would just need to
-   *   document that well, so it's clear why we have this semantic mismatch.
-   *
-   * @see CrudQueue::getMessageBody()
+   * @see getMessageBody()
+   * @see AwsSqsQueue::serialize()
    */
-  protected function getMessageBody() {
-    $data = [];
-    $this->iterateConfigKeys($this->config['field_map'], $data);
-
-    $normalizers = [new EntityMetadataWrapperNormalizer()];
-    $encoders = [new JsonEncoder()];
-    $serializer = new Serializer($normalizers, $encoders);
-    return $serializer->serialize($data, 'json');
-  }
-
-  /**
-   * {@inheritdoc}
-   *
-   * The $data array at this point should match the final YAML map, and contain
-   * values from EntityMetadataWrapper item wrapper ::value().
-   *
-   * Use Symfony Serializer component instead of json_encode().
-   * Also normalize the $data (Drupal Entity) object before JSON encoding.
-   *
-   * @todo Identify how to bypass stdClass issues with Serializer::serialize()
-   *   method (currently ObjectNormalizer does not work properly with stdClass).
-   *   Until then, use only Serializer::encode().
-   */
-  protected static function serialize($data, $context) {
-    $encoders = [new JsonEncoder()];
-    $serializer = new Serializer([], $encoders);
+  protected static function serialize($data) {
+    $serializer = new Serializer([], [new JsonEncoder()]);
     return $serializer->encode($data, 'json');
   }
-
-
-
-  /**
-   * @todo We may not need this method. Keep commented for now in case we do.
-   */
-//  protected function getFieldType($field_name) {
-//    return $this->fieldMap[$field_name]['type'];
-//  }
 
 }

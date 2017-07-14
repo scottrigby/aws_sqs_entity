@@ -72,5 +72,21 @@ function hook_aws_sqs_entity_property_mapper_config_paths() {
 }
 
 /**
+ * Allows modules to declare property mapper normalizers.
+ *
+ * @return array
+ *   An array of fully namespaced normalizer class names. Must extend
+ *   AbstractEntityValueWrapperNormalizer.
+ *
+ * @see \Drupal\aws_sqs_entity\Normalizer\AbstractEntityValueWrapperNormalizer
+ */
+function hook_aws_sqs_entity_value_wrapper_normalizers() {
+  return [
+    '\Drupal\my_module\Normalizer\EndpointOneNormalizer',
+    '\Drupal\my_module\Normalizer\EndpointTwoNormalizer',
+  ];
+}
+
+/**
  * @} End of "addtogroup hooks".
  */
