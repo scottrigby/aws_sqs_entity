@@ -175,6 +175,13 @@ class PropertyMapper extends CrudQueue {
     foreach ($fields as $key => $field) {
       $value = NULL;
 
+      // Support dot notation for a trail of nested property definitions.
+      $property_trail = [];
+      if (strpos($field, '.') !== FALSE) {
+        $property_trail = explode('.', $field);
+        $field = array_shift($property_trail);
+      }
+
       // Add recursion to handle YAML config field_map values that are
       // associative arrays of field values (example, customFields).
       if (!is_string($field) && is_array($field)) {
@@ -186,7 +193,7 @@ class PropertyMapper extends CrudQueue {
       // Now that we have the Drupal Entity field/property, get each field
       // item(s) value.
       if (isset($this->wrapper->$field)) {
-        $value = $this->EntityMetadataWrapper($this->wrapper->$field);
+        $value = $this->EntityMetadataWrapper($this->wrapper->$field, $property_trail);
       }
 
       $data[$key] = $value;
@@ -195,21 +202,23 @@ class PropertyMapper extends CrudQueue {
 
   /**
    * @param \EntityMetadataWrapper $wrapper
+   * @param array $property_trail
    * @return array|object|string|\Symfony\Component\Serializer\Normalizer\scalar
    */
-  protected function EntityMetadataWrapper(\EntityMetadataWrapper $wrapper) {
+  protected function EntityMetadataWrapper(\EntityMetadataWrapper $wrapper, $property_trail) {
     $value = '';
     if (is_a($wrapper, 'EntityListWrapper')) {
-      $value = $this->EntityListWrapper($wrapper);
+      $value = $this->EntityListWrapper($wrapper, $property_trail);
     }
     elseif (is_a($wrapper, 'EntityValueWrapper')) {
-      $value = $this->EntityValueWrapper($wrapper);
+      $value = $this->EntityValueWrapper($wrapper, $property_trail);
     }
     return $value;
   }
 
   /**
    * @param \EntityListWrapper $wrapper
+   * @param array $property_trail
    * @return array
    *
    * @todo Will there be cases where an iterated \EntityListWrapper item wrapper
@@ -221,13 +230,13 @@ class PropertyMapper extends CrudQueue {
    * @see \Symfony\Component\Serializer\Serializer::normalize()
    * @see \Drupal\aws_sqs_entity\Normalizer\AbstractEntityValueWrapperNormalizer::supportsNormalization()
    */
-  protected function EntityListWrapper(\EntityListWrapper $wrapper) {
+  protected function EntityListWrapper(\EntityListWrapper $wrapper, $property_trail) {
     $value = [];
     foreach ($wrapper->getIterator() as $delta => $itemWrapper) {
       // If the item wrapper doesn't extend one of these two types, our base
       // AbstractEntityValueWrapperNormalizer class won't support it.
       if ($itemWrapper instanceof \EntityValueWrapper || $itemWrapper instanceof \EntityStructureWrapper) {
-        $value[$delta] = $this->EntityValueWrapper($itemWrapper);
+        $value[$delta] = $this->EntityValueWrapper($itemWrapper, $property_trail);
       }
     }
     return $value;
@@ -239,14 +248,21 @@ class PropertyMapper extends CrudQueue {
    *   cases such as a taxonomy_term or entity reference, the value is another
    *   instance of EntityDrupalWrapper, so let's type hint the parent abstract
    *   EntityMetadataWrapper.
+   * @param array $property_trail
+   *   An array of Drupal Entity mapped value properties defined in YAML. This
+   *   allows defining nested properties, such as a compound field property, or
+   *   a field on a referenced Entity or Field Collection. Determining how these
+   *   should be rendered is the job of the supporting Normalizer.
    *
    * @return array|object|\Symfony\Component\Serializer\Normalizer\scalar
    */
-  protected function EntityValueWrapper(\EntityMetadataWrapper $wrapper) {
+  protected function EntityValueWrapper(\EntityMetadataWrapper $wrapper, $property_trail) {
     $serializer = new Serializer($this->normalizers, []);
     $context = [
       'wrapper' => $this->wrapper,
       'config' => $this->config,
+      'property_trail' => $property_trail,
+      'field_map' => $this->fieldMap,
     ];
     return $serializer->normalize($wrapper, null, $context);
   }
