@@ -88,14 +88,6 @@ class AbstractEntityValueWrapperNormalizer implements NormalizerInterface {
   }
 
   /**
-   * @param $data
-   * @return array
-   */
-  protected static function getFieldMap() {
-    return field_info_field_map();
-  }
-
-  /**
    * Gets the Drupal field/property type of the first item in the
    * $property_trail - the Drupal data origin for the wrapper passed to this
    * normalizer in the $data array.
@@ -104,7 +96,7 @@ class AbstractEntityValueWrapperNormalizer implements NormalizerInterface {
    * @return string|null
    */
   protected static function getPropertyType($data) {
-    $fieldMap = self::getFieldMap();
+    $fieldMap = field_info_field_map();
     $property = self::getProperty($data);
     $entity_type = self::getParentEntityType($data);
     $bundle = self::getParentBundle($data);

@@ -21,11 +21,6 @@ class PropertyMapper extends CrudQueue {
   protected $bundle;
 
   /**
-   * @var array
-   */
-  protected $fieldMap = [];
-
-  /**
    * @var \EntityDrupalWrapper
    */
   protected $wrapper;
@@ -52,7 +47,6 @@ class PropertyMapper extends CrudQueue {
     // Allow parent method to set vars so we don't have to again here.
     parent::__construct($name, $type, $entity, $op);
 
-    $this->setFieldMap();
     $this->setWrapper();
     $this->setBundle();
     $this->setConfig();
@@ -63,10 +57,6 @@ class PropertyMapper extends CrudQueue {
     if (!module_exists('entity')) {
       throw new \Exception('Entity API must be enabled to use this class.');
     }
-  }
-
-  protected function setFieldMap() {
-    $this->fieldMap = field_info_field_map();
   }
 
   protected function setWrapper() {
@@ -262,7 +252,6 @@ class PropertyMapper extends CrudQueue {
       'wrapper' => $this->wrapper,
       'config' => $this->config,
       'property_trail' => $property_trail,
-      'field_map' => $this->fieldMap,
     ];
 
     // In addition to passing context to the standard $context param, we also
