@@ -26,6 +26,19 @@ class AbstractEntityValueWrapperNormalizer implements NormalizerInterface {
   /**
    * {@inheritdoc}
    *
+   * Additionally the $data param contains:
+   * - normalizerContext: The $context param passed to Serializer::normalize()
+   *   stuffed into the $wrapper param so Serializer::supportsNormalization()
+   *   methods can use this context to determine whether the class supports
+   *   the field. This contains:
+   *   - wrapper: EntityMetadataWrapper for the CRUD-triggering Entity.
+   *   - config: YAML config for the CRUD-triggering Entity.
+   *   - property_trail: Optional additional trail of nested properties,
+   *     declared in the YAML config by dot-notation.
+   *   - field_map: Return value of field_info_field_map() for convenience.
+   *
+   * @see \Drupal\aws_sqs_entity\Entity\PropertyMapper::EntityValueWrapper()
+   *
    * We must also support instances of EntityStructureWrapper, or item wrappers
    * for field types such as taxonomy_term or entity references would not be
    * supported by this normalizer, and get stuck in very deeply nested loops
@@ -38,6 +51,75 @@ class AbstractEntityValueWrapperNormalizer implements NormalizerInterface {
    */
   public function supportsNormalization($data, $format = null) {
     return $data instanceof \EntityValueWrapper || $data instanceof \EntityStructureWrapper;
+  }
+
+  /**
+   * Gets the CRUD-triggering Entity.
+   *
+   * @param $data
+   * @return \EntityDrupalWrapper
+   */
+  protected static function getParent($data) {
+    // Alternately we could do:
+    // return $data->info()['parent'];
+    return $data->normalizerContext['wrapper'];
+  }
+
+  /**
+   * @param $data
+   * @return string
+   */
+  protected static function getParentEntityType($data) {
+    return self::getParent($data)->type();
+  }
+
+  /**
+   * @param $data
+   * @return string
+   */
+  protected static function getParentBundle($data) {
+    return self::getParent($data)->getBundle();
+  }
+
+  /**
+   * @param $data
+   * @return string
+   */
+  protected static function getProperty($data) {
+    return $data->info()['name'];
+  }
+
+  /**
+   * @param $data
+   * @return array
+   */
+  protected static function getFieldMap($data) {
+    // Alternately just call field_info_field_map() because it's cached with
+    // $drupal_static_fast. But for now we have it in $context anyway.
+    // return field_info_field_map();
+    return $data->normalizerContext['field_map'];
+  }
+
+  /**
+   * Gets the Drupal field/property type of the first item in the
+   * $property_trail - the Drupal data origin for the wrapper passed to this
+   * normalizer in the $data array.
+   *
+   * @param $data
+   * @return string|null
+   */
+  protected static function getPropertyType($data) {
+    $fieldMap = self::getFieldMap($data);
+    $property = self::getProperty($data);
+    $entity_type = self::getParentEntityType($data);
+    $bundle = self::getParentBundle($data);
+
+    $property_type = NULL;
+    if (isset($fieldMap[$property]['bundles'][$entity_type]) && in_array($bundle, $fieldMap[$property]['bundles'][$entity_type])) {
+      $property_type = $fieldMap[$property]['type'];
+    }
+
+    return $property_type;
   }
 
 }
