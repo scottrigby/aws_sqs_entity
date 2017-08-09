@@ -8,6 +8,7 @@
 define('AWS_SQS_ENTITY_QUEUE_CLASS_DEFAULT', '\Drupal\aws_sqs_entity\Entity\CrudQueue');
 
 use \Drupal\aws_sqs_entity\Entity\CrudQueue;
+use \Drupal\aws_sqs_entity\Normalizer\AbstractEntityValueWrapperNormalizer;
 
 /**
  * Implements hook_menu().
@@ -52,5 +53,30 @@ function aws_sqs_entity_delete($entity, $type) {
   $op = 'delete';
   if ($queue = CrudQueue::getQueue($type, $entity, $op)) {
     $queue->sendItem();
+  }
+}
+
+/**
+ * Implements hook_aws_sqs_entity_value_wrapper_normalizers().
+ */
+function aws_sqs_entity_aws_sqs_entity_value_wrapper_normalizers() {
+  return [
+    new AbstractEntityValueWrapperNormalizer(),
+  ];
+}
+
+/**
+ * Implements hook_module_implements_alter().
+ */
+function aws_sqs_entity_module_implements_alter(&$implementations, $hook) {
+  if ($hook == 'aws_sqs_entity_value_wrapper_normalizers') {
+    // Move aws_sqs_entity_aws_sqs_entity_value_wrapper_normalizers() to the end
+    // of the list, so that other normalizers can fire first, and if no
+    // supporting normalizer is found, we fall back to
+    // AbstractEntityValueWrapperNormalizer(), which just delivers
+    // EntityMetadataWrapper::value().
+    $group = $implementations['aws_sqs_entity'];
+    unset($implementations['aws_sqs_entity']);
+    $implementations['aws_sqs_entity'] = $group;
   }
 }
