@@ -187,7 +187,7 @@ class PropertyMapper extends CrudQueue {
       $property_trail = [];
       if (strpos($field, '.') !== FALSE) {
         $property_trail = explode('.', $field);
-        $field = array_shift($property_trail);
+        $field = $property_trail[0];
       }
 
       // Now that we have the Drupal Entity field/property, get each field
