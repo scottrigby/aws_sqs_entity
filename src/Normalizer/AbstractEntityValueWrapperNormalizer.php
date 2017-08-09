@@ -26,18 +26,13 @@ class AbstractEntityValueWrapperNormalizer implements NormalizerInterface {
   /**
    * {@inheritdoc}
    *
-   * Additionally the $data param contains:
-   * - normalizerContext: The $context param passed to Serializer::normalize()
-   *   stuffed into the $wrapper param so Serializer::supportsNormalization()
-   *   methods can use this context to determine whether the class supports
-   *   the field. This contains:
+   * @param array $format:
+   *   A copy of the $context param passed to Serializer::normalize(). See
+   *   reasoning in PropertyMapper::EntityValueWrapper(). Contains:
    *   - wrapper: EntityMetadataWrapper for the CRUD-triggering Entity.
    *   - config: YAML config for the CRUD-triggering Entity.
-   *   - property_trail: Optional additional trail of nested properties,
-   *     declared in the YAML config by dot-notation.
-   *   - field_map: Return value of field_info_field_map() for convenience.
-   *
-   * @see \Drupal\aws_sqs_entity\Entity\PropertyMapper::EntityValueWrapper()
+   *   - property_trail: Trail of nested properties declared in the YAML config
+   *     by optional dot-notation.
    *
    * We must also support instances of EntityStructureWrapper, or item wrappers
    * for field types such as taxonomy_term or entity references would not be
@@ -48,6 +43,7 @@ class AbstractEntityValueWrapperNormalizer implements NormalizerInterface {
    *   \EntityValueWrapper but now also \EntityStructureWrapper.
    *
    * @see \Symfony\Component\Serializer\Serializer::normalize()
+   * @see \Drupal\aws_sqs_entity\Entity\PropertyMapper::EntityValueWrapper()
    */
   public function supportsNormalization($data, $format = null) {
     return $data instanceof \EntityValueWrapper || $data instanceof \EntityStructureWrapper;
@@ -56,31 +52,36 @@ class AbstractEntityValueWrapperNormalizer implements NormalizerInterface {
   /**
    * Gets the CRUD-triggering Entity.
    *
-   * @param $data
+   * @param array $context
+   *   Either the $context param passed to Serializer::normalize(), or the
+   *   $format param passed to Serializer::supportsNormalization() by
+   *   PropertyMapper::EntityValueWrapper().
    * @return \EntityDrupalWrapper
+   *
+   * @see supportsNormalization()
    */
-  protected static function getParent($data) {
-    return $data->info()['parent'];
+  protected static function getParent($context) {
+    return $context['wrapper'];
   }
 
   /**
-   * @param $data
+   * @param array $context
    * @return string
    */
-  protected static function getParentEntityType($data) {
-    return self::getParent($data)->type();
+  protected static function getParentEntityType($context) {
+    return self::getParent($context)->type();
   }
 
   /**
-   * @param $data
+   * @param array $context
    * @return string
    */
-  protected static function getParentBundle($data) {
-    return self::getParent($data)->getBundle();
+  protected static function getParentBundle($context) {
+    return self::getParent($context)->getBundle();
   }
 
   /**
-   * @param $data
+   * @param \EntityMetadataWrapper $data
    * @return string
    */
   protected static function getProperty($data) {
@@ -95,11 +96,11 @@ class AbstractEntityValueWrapperNormalizer implements NormalizerInterface {
    * @param $data
    * @return string|null
    */
-  protected static function getPropertyType($data) {
+  protected static function getPropertyType($data, $context) {
     $fieldMap = field_info_field_map();
     $property = self::getProperty($data);
-    $entity_type = self::getParentEntityType($data);
-    $bundle = self::getParentBundle($data);
+    $entity_type = self::getParentEntityType($context);
+    $bundle = self::getParentBundle($context);
 
     $property_type = NULL;
     if (isset($fieldMap[$property]['bundles'][$entity_type]) && in_array($bundle, $fieldMap[$property]['bundles'][$entity_type])) {
