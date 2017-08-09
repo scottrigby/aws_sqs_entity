@@ -200,7 +200,11 @@ class PropertyMapper extends CrudQueue {
     if (is_a($wrapper, 'EntityListWrapper')) {
       $value = $this->EntityListWrapper($wrapper, $property_trail);
     }
-    elseif (is_a($wrapper, 'EntityValueWrapper')) {
+    // Certain field types are of EntityStructureWrapper wrapper type, such as
+    // some compound fields (where each of field "column" items are of type
+    // EntityValueWrapper).
+    elseif (is_a($wrapper, 'EntityValueWrapper')
+      || is_a($wrapper, 'EntityStructureWrapper')) {
       $value = $this->EntityValueWrapper($wrapper, $property_trail);
     }
     return $value;
