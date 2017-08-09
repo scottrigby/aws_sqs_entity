@@ -265,17 +265,22 @@ class PropertyMapper extends CrudQueue {
       'field_map' => $this->fieldMap,
     ];
 
-    // This seems not ideal, but the reason we stuff context into the $data
-    // normalizer param is so the Serializer::supportsNormalization() method can
-    // better determine whether the normalizer class should be chosen by
-    // Serializer::getNormalizer(). Alternatively, we may require the YAML
-    // config to specify an API property type in a YAML type/value map. That
-    // would make the YAML a lot less readable though, and also we would need to
-    // differentiate the normal type/value YAML map from intentionally nested
-    // YAML maps we already support.
-    $wrapper->normalizerContext = $context;
+    // In addition to passing context to the standard $context param, we also
+    // pass to the Serializer::normalize() $format param, so the
+    // Serializer::supportsNormalization() method can better determine whether
+    // the normalizer class should be chosen by Serializer::getNormalizer()
+    // (sadly, it does not have the luxury of receiving the $context param).
+    // Note that in our implementation of Serializer here, we would normally
+    // pass NULL to the $format param anyway, so this won't hurt anything,
+    // except possible confusion to future developers - hence this note.
+    //
+    // Alternatively, we may require the YAML config to specify an API property
+    // type in a YAML type/value map. That would make the YAML a lot less
+    // readable though, and also we would need to differentiate the normal
+    // type/value YAML map from intentionally nested YAML maps we now support.
+    $format = $context;
 
-    return $serializer->normalize($wrapper, null, $context);
+    return $serializer->normalize($wrapper, $format, $context);
   }
 
   /**

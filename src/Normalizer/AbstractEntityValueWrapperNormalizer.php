@@ -60,9 +60,7 @@ class AbstractEntityValueWrapperNormalizer implements NormalizerInterface {
    * @return \EntityDrupalWrapper
    */
   protected static function getParent($data) {
-    // Alternately we could do:
-    // return $data->info()['parent'];
-    return $data->normalizerContext['wrapper'];
+    return $data->info()['parent'];
   }
 
   /**
@@ -93,11 +91,8 @@ class AbstractEntityValueWrapperNormalizer implements NormalizerInterface {
    * @param $data
    * @return array
    */
-  protected static function getFieldMap($data) {
-    // Alternately just call field_info_field_map() because it's cached with
-    // $drupal_static_fast. But for now we have it in $context anyway.
-    // return field_info_field_map();
-    return $data->normalizerContext['field_map'];
+  protected static function getFieldMap() {
+    return field_info_field_map();
   }
 
   /**
@@ -109,7 +104,7 @@ class AbstractEntityValueWrapperNormalizer implements NormalizerInterface {
    * @return string|null
    */
   protected static function getPropertyType($data) {
-    $fieldMap = self::getFieldMap($data);
+    $fieldMap = self::getFieldMap();
     $property = self::getProperty($data);
     $entity_type = self::getParentEntityType($data);
     $bundle = self::getParentBundle($data);
