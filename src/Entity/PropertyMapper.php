@@ -175,19 +175,19 @@ class PropertyMapper extends CrudQueue {
     foreach ($fields as $key => $field) {
       $value = NULL;
 
-      // Support dot notation for a trail of nested property definitions.
-      $property_trail = [];
-      if (strpos($field, '.') !== FALSE) {
-        $property_trail = explode('.', $field);
-        $field = array_shift($property_trail);
-      }
-
       // Add recursion to handle YAML config field_map values that are
       // associative arrays of field values (example, customFields).
       if (!is_string($field) && is_array($field)) {
         $data[$key] = [];
         $this->yamlPropertyMapper($field, $data[$key]);
         continue;
+      }
+
+      // Support dot notation for a trail of nested property definitions.
+      $property_trail = [];
+      if (strpos($field, '.') !== FALSE) {
+        $property_trail = explode('.', $field);
+        $field = array_shift($property_trail);
       }
 
       // Now that we have the Drupal Entity field/property, get each field
