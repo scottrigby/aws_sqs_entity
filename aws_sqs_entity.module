@@ -29,7 +29,7 @@ function aws_sqs_entity_menu() {
 /**
  * Implements hook_entity_insert().
  */
-function aws_sqs_entity_insert($entity, $type) {
+function aws_sqs_entity_entity_insert($entity, $type) {
   $op = 'insert';
   if ($queue = CrudQueue::getQueue($type, $entity, $op)) {
     $queue->sendItem();
@@ -39,7 +39,7 @@ function aws_sqs_entity_insert($entity, $type) {
 /**
  * Implements hook_entity_update().
  */
-function aws_sqs_entity_update($entity, $type) {
+function aws_sqs_entity_entity_update($entity, $type) {
   $op = 'update';
   if ($queue = CrudQueue::getQueue($type, $entity, $op)) {
     $queue->sendItem();
@@ -49,7 +49,7 @@ function aws_sqs_entity_update($entity, $type) {
 /**
  * Implements hook_entity_delete().
  */
-function aws_sqs_entity_delete($entity, $type) {
+function aws_sqs_entity_entity_delete($entity, $type) {
   $op = 'delete';
   if ($queue = CrudQueue::getQueue($type, $entity, $op)) {
     $queue->sendItem();
