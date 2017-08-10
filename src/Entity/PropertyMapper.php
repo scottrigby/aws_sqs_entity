@@ -163,7 +163,9 @@ class PropertyMapper extends CrudQueue {
    */
   protected function yamlPropertyMapper($fields, &$data) {
     foreach ($fields as $key => $field) {
-      $value = NULL;
+      // Pass through strings as the value if they're not an Entity property
+      // recognized either by EntitymetadataWrapper->FIELD or ENTITY->FIELD.
+      $value = $field;
 
       // Add recursion to handle YAML config field_map values that are
       // associative arrays of field values (example, customFields).
