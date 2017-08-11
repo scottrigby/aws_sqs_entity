@@ -74,7 +74,7 @@ class PropertyMapper extends CrudQueue {
    */
   protected function setConfig() {
     $paths = module_invoke_all('aws_sqs_entity_property_mapper_config_paths');
-    $file_pattern = join('.', ['aws_sqs_entity', 'property_mapper', $this->type, $this->bundle, 'yml']);
+    $file_pattern = join('.', [$this->type, $this->bundle, 'yml']);
     foreach ($paths as $path) {
       $filename = join('/', [$path, $file_pattern]);
       if (file_exists($filename)) {
