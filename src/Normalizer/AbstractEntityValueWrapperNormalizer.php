@@ -96,7 +96,7 @@ class AbstractEntityValueWrapperNormalizer implements NormalizerInterface {
    * @param $data
    * @return string|null
    */
-  protected static function getPropertyType($data, $context) {
+  protected static function getSourcePropertyType($data, $context) {
     $fieldMap = field_info_field_map();
     $property = self::getProperty($data);
     $entity_type = self::getParentEntityType($context);

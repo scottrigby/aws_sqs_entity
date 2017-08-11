@@ -162,39 +162,47 @@ class PropertyMapper extends CrudQueue {
    * Receives config as array, and iterates over each YAML key (recursively, to
    * handle nested YAML maps).
    *
-   * @param $fields
+   * @param $field_map
    *   See $field_map param of setConfig().
    * @param $data
    *   The return value of getMessageBody().
    */
-  protected function yamlPropertyMapper($fields, &$data, $context) {
-    foreach ($fields as $key => $field) {
+  protected function yamlPropertyMapper($field_map, &$data, &$context) {
+    foreach ($field_map as $dest_prop => $source_prop) {
       // Pass through strings as the value if they're not an Entity property
       // recognized either by EntitymetadataWrapper->FIELD.
-      $value = $field;
+      $value = $source_prop;
 
       // Add recursion to handle YAML config field_map values that are
       // associative arrays of field values (example, customFields).
-      if (!is_string($field) && is_array($field)) {
-        $data[$key] = [];
-        $this->yamlPropertyMapper($field, $data[$key], $context);
+      if (!is_string($source_prop) && is_array($source_prop)) {
+        $data[$dest_prop] = [];
+        $this->yamlPropertyMapper($source_prop, $data[$dest_prop], $context);
         continue;
       }
 
+      // @todo Support ORing (with "|") before deciding on the $source_prop.
+
       // Support dot notation for a trail of nested property definitions.
+      // @todo Rename to "source_property_trail".
       $context['property_trail'] = [];
-      if (strpos($field, '.') !== FALSE) {
-        $context['property_trail'] = explode('.', $field);
-        $field = $context['property_trail'][0];
+      if (strpos($source_prop, '.') !== FALSE) {
+        $context['property_trail'] = explode('.', $source_prop);
+        $source_prop = $context['property_trail'][0];
       }
+
+      $context['dest_prop'] = $dest_prop;
+      $context['source_prop'] = $source_prop;
 
       // Now that we have the Drupal Entity field/property, get each field
       // item(s) value.
-      if (isset($this->wrapper->$field)) {
-        $value = $this->EntityMetadataWrapper($this->wrapper->$field, $context);
+      // @todo Check if the dot-notated source property trail item is a
+      //   reference, or a column to be retreived with ->get().
+      if (isset($this->wrapper->$source_prop)) {
+        $value = $this->EntityMetadataWrapper($this->wrapper->$source_prop, $context);
       }
 
-      $data[$key] = $value;
+      $data[$dest_prop] = $value;
     }
   }
 
