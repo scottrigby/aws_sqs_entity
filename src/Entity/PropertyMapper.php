@@ -143,8 +143,14 @@ class PropertyMapper extends CrudQueue {
   protected function getMessageBody() {
     $data = [];
 
+    $context = [
+      'item_type' => $this->config['itemType'],
+      'wrapper' => $this->wrapper,
+      'config' => $this->config,
+    ];
+
     if (isset($this->config['field_map'])) {
-      $this->yamlPropertyMapper($this->config['field_map'], $data);
+      $this->yamlPropertyMapper($this->config['field_map'], $data, $context);
     }
 
     return $data;
@@ -161,31 +167,31 @@ class PropertyMapper extends CrudQueue {
    * @param $data
    *   The return value of getMessageBody().
    */
-  protected function yamlPropertyMapper($fields, &$data) {
+  protected function yamlPropertyMapper($fields, &$data, $context) {
     foreach ($fields as $key => $field) {
       // Pass through strings as the value if they're not an Entity property
-      // recognized either by EntitymetadataWrapper->FIELD or ENTITY->FIELD.
+      // recognized either by EntitymetadataWrapper->FIELD.
       $value = $field;
 
       // Add recursion to handle YAML config field_map values that are
       // associative arrays of field values (example, customFields).
       if (!is_string($field) && is_array($field)) {
         $data[$key] = [];
-        $this->yamlPropertyMapper($field, $data[$key]);
+        $this->yamlPropertyMapper($field, $data[$key], $context);
         continue;
       }
 
       // Support dot notation for a trail of nested property definitions.
-      $property_trail = [];
+      $context['property_trail'] = [];
       if (strpos($field, '.') !== FALSE) {
-        $property_trail = explode('.', $field);
-        $field = $property_trail[0];
+        $context['property_trail'] = explode('.', $field);
+        $field = $context['property_trail'][0];
       }
 
       // Now that we have the Drupal Entity field/property, get each field
       // item(s) value.
       if (isset($this->wrapper->$field)) {
-        $value = $this->EntityMetadataWrapper($this->wrapper->$field, $property_trail);
+        $value = $this->EntityMetadataWrapper($this->wrapper->$field, $context);
       }
 
       $data[$key] = $value;
@@ -194,27 +200,27 @@ class PropertyMapper extends CrudQueue {
 
   /**
    * @param \EntityMetadataWrapper $wrapper
-   * @param array $property_trail
+   * @param array $context
    * @return array|object|string|\Symfony\Component\Serializer\Normalizer\scalar
    */
-  protected function EntityMetadataWrapper(\EntityMetadataWrapper $wrapper, $property_trail) {
+  protected function EntityMetadataWrapper(\EntityMetadataWrapper $wrapper, $context) {
     $value = '';
     if (is_a($wrapper, 'EntityListWrapper')) {
-      $value = $this->EntityListWrapper($wrapper, $property_trail);
+      $value = $this->EntityListWrapper($wrapper, $context);
     }
     // Certain field types are of EntityStructureWrapper wrapper type, such as
     // some compound fields (where each of field "column" items are of type
     // EntityValueWrapper).
     elseif (is_a($wrapper, 'EntityValueWrapper')
       || is_a($wrapper, 'EntityStructureWrapper')) {
-      $value = $this->EntityValueWrapper($wrapper, $property_trail);
+      $value = $this->EntityValueWrapper($wrapper, $context);
     }
     return $value;
   }
 
   /**
    * @param \EntityListWrapper $wrapper
-   * @param array $property_trail
+   * @param array $context
    * @return array
    *
    * @todo Will there be cases where an iterated \EntityListWrapper item wrapper
@@ -226,13 +232,13 @@ class PropertyMapper extends CrudQueue {
    * @see \Symfony\Component\Serializer\Serializer::normalize()
    * @see \Drupal\aws_sqs_entity\Normalizer\AbstractEntityValueWrapperNormalizer::supportsNormalization()
    */
-  protected function EntityListWrapper(\EntityListWrapper $wrapper, $property_trail) {
+  protected function EntityListWrapper(\EntityListWrapper $wrapper, $context) {
     $value = [];
     foreach ($wrapper->getIterator() as $delta => $itemWrapper) {
       // If the item wrapper doesn't extend one of these two types, our base
       // AbstractEntityValueWrapperNormalizer class won't support it.
       if ($itemWrapper instanceof \EntityValueWrapper || $itemWrapper instanceof \EntityStructureWrapper) {
-        $value[$delta] = $this->EntityValueWrapper($itemWrapper, $property_trail);
+        $value[$delta] = $this->EntityValueWrapper($itemWrapper, $context);
       }
     }
     return $value;
@@ -244,21 +250,21 @@ class PropertyMapper extends CrudQueue {
    *   cases such as a taxonomy_term or entity reference, the value is another
    *   instance of EntityDrupalWrapper, so let's type hint the parent abstract
    *   EntityMetadataWrapper.
-   * @param array $property_trail
-   *   An array of Drupal Entity mapped value properties defined in YAML. This
-   *   allows defining nested properties, such as a compound field property, or
-   *   a field on a referenced Entity or Field Collection. Determining how these
-   *   should be rendered is the job of the supporting Normalizer.
+   * @param array $context
+   *   A context array, containing:
+   *   - item_type: The YAML config "item_type" value.
+   *   - wrapper: The CRUD-triggering EntityMetadataWrapper.
+   *   - config: Parsed YAML config matching the CRUD-triggering Entity.
+   *   - property_trail: An array of Drupal Entity mapped value properties
+   *     defined in YAML. This allows defining nested properties, such as a
+   *     compound field property, or a field on a referenced Entity or Field
+   *     Collection. Determining how these should be rendered is the job of the
+   *     supporting Normalizer.
    *
    * @return array|object|\Symfony\Component\Serializer\Normalizer\scalar
    */
-  protected function EntityValueWrapper(\EntityMetadataWrapper $wrapper, $property_trail) {
+  protected function EntityValueWrapper(\EntityMetadataWrapper $wrapper, $context) {
     $serializer = new Serializer($this->normalizers, []);
-    $context = [
-      'wrapper' => $this->wrapper,
-      'config' => $this->config,
-      'property_trail' => $property_trail,
-    ];
 
     // In addition to passing context to the standard $context param, we also
     // pass to the Serializer::normalize() $format param, so the
