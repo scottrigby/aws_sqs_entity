@@ -78,6 +78,11 @@ class PropertyMapper extends CrudQueue {
     foreach ($paths as $path) {
       $filename = join('/', [$path, $file_pattern]);
       if (file_exists($filename)) {
+        // @todo Look deeper at Symfony/Component/Yaml/Yaml::parse bitwise
+        //   operators. Quick test of PARSE_OBJECT_FOR_MAP and PARSE_OBJECT
+        //   fail. If we need this, it appears that we may have to add some
+        //   special string value to match to provide this support, such as
+        //   "EMPTY_OBJECT".
         $this->config = Yaml::parse(file_get_contents($filename));
         // The first file found wins.
         break;
