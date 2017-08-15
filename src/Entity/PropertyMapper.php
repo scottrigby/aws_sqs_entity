@@ -167,12 +167,12 @@ class PropertyMapper extends CrudQueue {
    * Receives config as array, and iterates over each YAML key (recursively, to
    * handle nested YAML maps).
    *
-   * @param $field_map
+   * @param array $field_map
    *   See $field_map param of setConfig().
-   * @param $data
+   * @param array $data
    *   The return value of getMessageBody().
    */
-  protected function yamlPropertyMapper($field_map, &$data, &$context) {
+  protected function yamlPropertyMapper(array $field_map, array &$data, array &$context) {
     foreach ($field_map as $dest_prop => $source_prop) {
       // Pass through strings as the value if they're not an Entity property
       // recognized either by EntitymetadataWrapper->FIELD.
@@ -188,12 +188,11 @@ class PropertyMapper extends CrudQueue {
 
       // @todo Support ORing (with "|") before deciding on the $source_prop.
 
-      // Support dot notation for a trail of nested property definitions.
-      // @todo Rename to "source_property_trail".
-      $context['property_trail'] = [];
+      // Support dot notation for a trail of nested source property definitions.
+      $context['source_prop_trail'] = [];
       if (strpos($source_prop, '.') !== FALSE) {
-        $context['property_trail'] = explode('.', $source_prop);
-        $source_prop = $context['property_trail'][0];
+        $context['source_prop_trail'] = explode('.', $source_prop);
+        $source_prop = $context['source_prop_trail'][0];
       }
 
       $context['dest_prop'] = $dest_prop;
@@ -216,7 +215,7 @@ class PropertyMapper extends CrudQueue {
    * @param array $context
    * @return array|object|string|\Symfony\Component\Serializer\Normalizer\scalar
    */
-  protected function EntityMetadataWrapper(\EntityMetadataWrapper $wrapper, $context) {
+  protected function EntityMetadataWrapper(\EntityMetadataWrapper $wrapper, array $context) {
     $value = '';
     if (is_a($wrapper, 'EntityListWrapper')) {
       $value = $this->EntityListWrapper($wrapper, $context);
@@ -245,30 +244,54 @@ class PropertyMapper extends CrudQueue {
    * @see \Symfony\Component\Serializer\Serializer::normalize()
    * @see \Drupal\aws_sqs_entity\Normalizer\AbstractEntityValueWrapperNormalizer::supportsNormalization()
    */
-  protected function EntityListWrapper(\EntityListWrapper $wrapper, $context) {
+  protected function EntityListWrapper(\EntityListWrapper $wrapper, array $context) {
     $value = [];
     foreach ($wrapper->getIterator() as $delta => $itemWrapper) {
       // If the item wrapper doesn't extend one of these two types, our base
       // AbstractEntityValueWrapperNormalizer class won't support it.
-      if ($itemWrapper instanceof \EntityValueWrapper || $itemWrapper instanceof \EntityStructureWrapper) {
+      // Note that \EntityDrupalWrapper extends \EntityStructureWrapper, and
+      // this covers all classes that extend \EntityMetadataWrapper.
+      if ($itemWrapper instanceof \EntityValueWrapper) {
         $value[$delta] = $this->EntityValueWrapper($itemWrapper, $context);
+      }
+      elseif ($itemWrapper instanceof \EntityStructureWrapper) {
+        $value[$delta] = $this->EntityStructureWrapper($itemWrapper, $context);
       }
     }
     return $value;
   }
 
   /**
+   * @param \EntityMetadataWrapper $wrapper
+   * @param array $context
+   * @return array|object|\Symfony\Component\Serializer\Normalizer\scalar
+   */
+  protected function EntityValueWrapper(\EntityMetadataWrapper $wrapper, array $context) {
+    return $this->normalize($wrapper, $context);
+  }
+
+  /**
+   * @param \EntityStructureWrapper $wrapper
+   * @param array $context
+   * @return array|object|\Symfony\Component\Serializer\Normalizer\scalar
+   */
+  protected function EntityStructureWrapper(\EntityStructureWrapper $wrapper, array $context) {
+    return $this->normalize($wrapper, $context);
+  }
+
+  /**
    * @param \EntityValueWrapper $wrapper
    *   Note this may not always be an instance of EntityValueWrapper. In some
    *   cases such as a taxonomy_term or entity reference, the value is another
-   *   instance of EntityDrupalWrapper, so let's type hint the parent abstract
+   *   instance of EntityDrupalWrapper. Certain fields are also instances of
+   *   EntityStructureWrapper. So let's type hint the parent abstract
    *   EntityMetadataWrapper.
    * @param array $context
    *   A context array, containing:
    *   - item_type: The YAML config "item_type" value.
    *   - wrapper: The CRUD-triggering EntityMetadataWrapper.
    *   - config: Parsed YAML config matching the CRUD-triggering Entity.
-   *   - property_trail: An array of Drupal Entity mapped value properties
+   *   - source_prop_trail: An array of Drupal Entity mapped value properties
    *     defined in YAML. This allows defining nested properties, such as a
    *     compound field property, or a field on a referenced Entity or Field
    *     Collection. Determining how these should be rendered is the job of the
@@ -276,7 +299,7 @@ class PropertyMapper extends CrudQueue {
    *
    * @return array|object|\Symfony\Component\Serializer\Normalizer\scalar
    */
-  protected function EntityValueWrapper(\EntityMetadataWrapper $wrapper, $context) {
+  protected function normalize(\EntityMetadataWrapper $wrapper, array $context) {
     $serializer = new Serializer($this->normalizers, []);
 
     // In addition to passing context to the standard $context param, we also

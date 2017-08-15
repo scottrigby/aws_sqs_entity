@@ -31,7 +31,7 @@ class AbstractEntityValueWrapperNormalizer implements NormalizerInterface {
    *   reasoning in PropertyMapper::EntityValueWrapper(). Contains:
    *   - wrapper: EntityMetadataWrapper for the CRUD-triggering Entity.
    *   - config: YAML config for the CRUD-triggering Entity.
-   *   - property_trail: Trail of nested properties declared in the YAML config
+   *   - source_prop_trail: Trail of nested properties declared in the YAML config
    *     by optional dot-notation.
    *
    * We must also support instances of EntityStructureWrapper, or item wrappers
@@ -90,7 +90,7 @@ class AbstractEntityValueWrapperNormalizer implements NormalizerInterface {
 
   /**
    * Gets the Drupal field/property type of the first item in the
-   * $property_trail - the Drupal data origin for the wrapper passed to this
+   * $source_prop_trail - the Drupal data origin for the wrapper passed to this
    * normalizer in the $data array.
    *
    * @param $data
