@@ -321,7 +321,10 @@ class PropertyMapper extends CrudQueue {
   protected function EntityValueWrapper(\EntityMetadataWrapper $wrapper, array &$context) {
     if (!empty($context['source_prop_trail'])) {
       $next_source_prop = array_shift($context['source_prop_trail']);
-      $this->marshalWrapperClass($wrapper->{$next_source_prop}, $context);
+
+      if (isset($wrapper->{$next_source_prop})) {
+        $this->marshalWrapperClass($wrapper->{$next_source_prop}, $context);
+      }
     }
     else {
       $context['final_source_prop_value'] = $this->normalize($wrapper, $context);
@@ -335,7 +338,10 @@ class PropertyMapper extends CrudQueue {
   protected function EntityStructureWrapper(\EntityStructureWrapper $wrapper, array &$context) {
     if (!empty($context['source_prop_trail'])) {
       $next_source_prop = array_shift($context['source_prop_trail']);
-      $this->marshalWrapperClass($wrapper->{$next_source_prop}, $context);
+
+      if (isset($wrapper->{$next_source_prop})) {
+        $this->marshalWrapperClass($wrapper->{$next_source_prop}, $context);
+      }
     }
     else {
       $context['final_source_prop_value'] = $this->normalize($wrapper, $context);
@@ -349,7 +355,10 @@ class PropertyMapper extends CrudQueue {
   protected function EntityDrupalWrapper(\EntityDrupalWrapper $wrapper, array &$context) {
     if (!empty($context['source_prop_trail'])) {
       $next_source_prop = array_shift($context['source_prop_trail']);
-      $this->marshalWrapperClass($wrapper->{$next_source_prop}, $context);
+
+      if (isset($wrapper->{$next_source_prop})) {
+        $this->marshalWrapperClass($wrapper->{$next_source_prop}, $context);
+      }
     }
     else {
       $context['final_source_prop_value'] = $this->normalize($wrapper, $context);
