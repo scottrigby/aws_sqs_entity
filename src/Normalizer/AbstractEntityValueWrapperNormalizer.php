@@ -85,7 +85,7 @@ class AbstractEntityValueWrapperNormalizer implements NormalizerInterface {
    * @return string
    */
   protected static function getProperty($data) {
-    return $data->info()['name'];
+    return isset($data->info()['name']) ? $data->info()['name'] : NULL;
   }
 
   /**
@@ -101,6 +101,10 @@ class AbstractEntityValueWrapperNormalizer implements NormalizerInterface {
     $property = self::getProperty($data);
     $entity_type = self::getParentEntityType($context);
     $bundle = self::getParentBundle($context);
+
+    if (empty($property) || empty($entity_type) || empty($bundle)) {
+      return NULL;
+    }
 
     $property_type = NULL;
     if (isset($fieldMap[$property]['bundles'][$entity_type]) && in_array($bundle, $fieldMap[$property]['bundles'][$entity_type])) {
