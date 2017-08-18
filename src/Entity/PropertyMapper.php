@@ -181,10 +181,6 @@ class PropertyMapper extends CrudQueue {
    */
   protected function yamlPropertyMapper(array $field_map, array &$data, array &$context) {
     foreach ($field_map as $dest_prop => $source_prop) {
-      // Pass through strings as the value if they're not an Entity property
-      // recognized by EMD->FIELD.
-      $value = $source_prop;
-
       // Add recursion to handle nested destination properties in YAML config.
       // Relevant example YAML block from
       // hook_aws_sqs_entity_property_mapper_config_paths():
@@ -201,8 +197,15 @@ class PropertyMapper extends CrudQueue {
         continue;
       }
 
+      // Reset relevant context for each source property.
+      $source_context = $context;
+
+      // Pass through strings as the value if they're not an Entity property
+      // recognized by EMD->FIELD.
+      $value = $source_prop;
+
       // Add current destination property to context for normalizers.
-      $context['final_dest_prop'] = $dest_prop;
+      $source_context['final_dest_prop'] = $dest_prop;
 
       // If the Source property is a dot-concatenated string, this syntax
       // signifies a trail of properties to discover within the source
@@ -213,14 +216,14 @@ class PropertyMapper extends CrudQueue {
       // field_map:
       //   destProperty: field_my_field_collection.field_my_entityreference.uuid
       // @endcode
-      $context['source_prop_trail'] = explode('.', $source_prop);
+      $source_context['source_prop_trail'] = explode('.', $source_prop);
 
       // Check if there is a valid normalized value, so that - if there is not -
       // plain strings (above) will pass through to the final $data array.
       // @todo Support ORing (with "|") before setting final_source_prop_value.
-      $this->marshalWrapperClass($this->wrapper, $context);
-      if (isset($context['final_source_prop_value'])) {
-        $value = $context['final_source_prop_value'];
+      $this->marshalWrapperClass($this->wrapper, $source_context);
+      if (isset($source_context['final_source_prop_value'])) {
+        $value = $source_context['final_source_prop_value'];
       }
 
       $data[$dest_prop] = $value;
