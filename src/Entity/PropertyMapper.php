@@ -298,9 +298,6 @@ class PropertyMapper extends CrudQueue {
   /**
    * @param \EntityListWrapper $wrapper
    * @param array $context
-   *
-   * @see \Symfony\Component\Serializer\Serializer::normalize()
-   * @see \Drupal\aws_sqs_entity\Normalizer\AbstractEntityValueWrapperNormalizer::supportsNormalization()
    */
   protected function EntityListWrapper(\EntityListWrapper $wrapper, array &$context) {
     $value = [];
@@ -372,6 +369,9 @@ class PropertyMapper extends CrudQueue {
    *     compound field property, or a field on a referenced Entity or Field
    *     Collection. Determining how these should be rendered is the job of the
    *     supporting Normalizer.
+   *
+   * @see \Symfony\Component\Serializer\Serializer::normalize()
+   * @see \Drupal\aws_sqs_entity\Normalizer\AbstractEntityValueWrapperNormalizer::supportsNormalization()
    *
    * @return array|object|\Symfony\Component\Serializer\Normalizer\scalar
    */
