@@ -201,6 +201,9 @@ class PropertyMapper extends CrudQueue {
         continue;
       }
 
+      // Add current destination property to context for normalizers.
+      $context['final_dest_prop'] = $dest_prop;
+
       // If the Source property is a dot-concatenated string, this syntax
       // signifies a trail of properties to discover within the source
       // \EntityMetadataWrapper object created for the triggering Entity. In
