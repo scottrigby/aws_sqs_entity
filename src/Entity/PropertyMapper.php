@@ -210,7 +210,7 @@ class PropertyMapper extends CrudQueue {
       // field_map:
       //   destProperty: field_my_field_collection.field_my_entityreference.uuid
       // @endcode
-      $context['source_prop_trail'] = strpos($context['source_prop_trail'], '.') !== FALSE ? explode('.', $source_prop) : [$source_prop];
+      $context['source_prop_trail'] = explode('.', $source_prop);
 
       // Check if there is a valid normalized value, so that - if there is not -
       // plain strings (above) will pass through to the final $data array.
