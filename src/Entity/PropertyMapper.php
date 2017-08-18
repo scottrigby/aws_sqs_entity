@@ -162,42 +162,62 @@ class PropertyMapper extends CrudQueue {
   }
 
   /**
-   * Iterates over all config keys to find Drupal Entity mapped values.
-   *
-   * Receives config as array, and iterates over each YAML key (recursively, to
-   * handle nested YAML maps).
+   * Recursively iterates over each destination (external) property to find
+   * mapped source (Drupal Entity) property values.
    *
    * @param array $field_map
    *   See $field_map param of setConfig().
    * @param array $data
    *   The return value of getMessageBody().
+   * @param array $context
+   *   By reference. Associative array containing:
+   *   - item_type: Destination item type corresponding to the triggering
+   *     Entity.
+   *   - wrapper: \EntityDrupalWrapper for triggering entity.
+   *   - config: YAML config for triggering Entity.
+   *   - source_prop_trail: An array of source property definitions temporarily
+   *     assigned by reference for the current destination property, for the
+   *     purpose of setting $context['final_source_prop_value'].
    */
   protected function yamlPropertyMapper(array $field_map, array &$data, array &$context) {
     foreach ($field_map as $dest_prop => $source_prop) {
       // Pass through strings as the value if they're not an Entity property
-      // recognized either by EntitymetadataWrapper->FIELD.
+      // recognized by EMD->FIELD.
       $value = $source_prop;
 
-      // Add recursion to handle YAML config field_map values that are
-      // associative arrays of field values (example, customFields).
+      // Add recursion to handle nested destination properties in YAML config.
+      // Relevant example YAML block from
+      // hook_aws_sqs_entity_property_mapper_config_paths():
+      // @code
+      // field_map:
+      //   nestedMap:
+      //     nested1: uuid
+      //     nested2: vid
+      //     nested3: title
+      // @endcode
       if (!is_string($source_prop) && is_array($source_prop)) {
         $data[$dest_prop] = [];
         $this->yamlPropertyMapper($source_prop, $data[$dest_prop], $context);
         continue;
       }
 
-      // @todo Support ORing (with "|") before deciding on the $source_prop.
-
-      // Support dot notation for a trail of nested source property definitions.
+      // If the Source property is a dot-concatenated string, this syntax
+      // signifies a trail of properties to discover within the source
+      // \EntityMetadataWrapper object created for the triggering Entity. In
+      // either case $context['source_prop_trail'] is set to an array of these
+      // properties. Example YAML block:
+      // @code
+      // field_map:
+      //   destProperty: field_my_field_collection.field_my_entityreference.uuid
+      // @endcode
       $context['source_prop_trail'] = strpos($context['source_prop_trail'], '.') !== FALSE ? explode('.', $source_prop) : [$source_prop];
-      $this->getFinalWrapper($this->wrapper, $context);
+
       // Check if there is a valid normalized value, so that - if there is not -
       // plain strings (above) will pass through to the final $data array.
-      // @todo Maybe we can't get the value from this level? If we must get it
-      //   from each EMW-named method level, then we can pass the value back up
-      //   through $context.
-      if ($normalized_value = $this->normalize($context['final_wrapper'], $context)) {
-        $value = $normalized_value;
+      // @todo Support ORing (with "|") before setting final_source_prop_value.
+      $this->marshalWrapperClass($this->wrapper, $context);
+      if (isset($context['final_source_prop_value'])) {
+        $value = $context['final_source_prop_value'];
       }
 
       $data[$dest_prop] = $value;
@@ -207,104 +227,68 @@ class PropertyMapper extends CrudQueue {
   /**
    * This is Magic: https://giphy.com/gifs/shia-labeouf-12NUbkX6p4xOO4
    *
-   * @param \EntityMetadataWrapper $wrapper
-   * @param array $context
+   * Marshals to the correct method matching the current \EntityMetadataWrapper
+   * extension class, which follows the source property trail to the method for
+   * the final wrapper class, which sets the final source property value in the
+   * context array passed by reference.
    *
-   * Strategy for Drupal 7 (note that EMD is the best tool we have prior to
-   * Typed Data in Drupal 8):
+   * Note that this magic marshalling is not permissive of malformed source
+   * property strings. Those must map to an actual Drupal Entity structure, or
+   * an Exception will likely be thrown by the Entity API (just as it is when
+   * hard-coding EMD calls).
    *
-   * 1. PropertyMapper::YamlPropertyMapper recursively loops over each
-   *    Destination (external) property to find a mapped Source (Drupal)
-   *    property.
+   * Also note we use this strategy because \EntityMetadataWrapper (EMD) is the
+   * best tool we have for systematically finding values from Drupal Entities,
+   * prior to Typed Data in Drupal 8.
    *
-   * 2. If the Source property is a dot-concatenated string, this syntax
-   *    signifies a trail of properties to discover within the source
-   *    \EntityMetadataWrapper object created for the triggering Entity.
-   *
-   * 3. YamlPropertyMapper method then seeks out the final wrapper for the
-   *    source property trail from getFinalWrapper method.
-   *
-   * 4. getFinalWrapper initiates a search for the final wrapper corresponding
-   *    to the last concatenated string source property.
-   *    This is a recursive search through the \EntityMetadataWrapper object's
-   *    lazy-loaded children, each of which may be a single object – or array of
-   *    objects – of type:
-   *    - \EntityListWrapper: Contains an array of one the types below.
-   *    - \EntityStructureWrapper:
-   *    - \EntityDrupalWrapper: An extension of \EntityStructureWrapper
-   *    - \EntityValueWrapper:
-   *
-   * 5. Each EMD-class-named method will leverage our magic
-   *    PropertyMapper::MarshalWrapperClass method to navigate to the next child
-   *    declared by the source property trail, in the way that is correct for
-   *    their corresponding EMD-class (for example, each EMD class has different
-   *    methods it can make use of to determine the correct calling technique).
-   *
-   * 6. MarshalWrapperClass method will marshal the recursive calls - through
-   *    each EMW-class-named method - following the source property trail
-   *    manifest – until the final child wrapper is reached. The winning
-   *    EMW-class-named method will know this because there will be no remaining
-   *    items in the $context param "source_prop_trail" array.
-   *
-   * 7. The winning EMW-class-named method will pass it's final wrapper object
-   *    all the way back up the ladder, to the initiating getFinalWrapper
-   *    method, as a value to a new "final_wrapper" key within the $context
-   *    variable. It will also pass the "final_dest_prop" as well, only as
-   *    potentially useful context information for normalizer classes which may
-   *    need this.
-   *
-   * 8. getFinalWrapper method then returns the final wrapper to
-   *    YamlPropertyMapper method.
-   *
-   * 9. YamlPropertyMapper finally seeks a normalized value of the final wrapper
-   *    from PropertyMapper::normalize(), and adds that value to the total $data
-   *    array - which, after being serialized to JSON - comprises the queue
-   *    message body.
-   * @todo ^ Change this to reflect setting values in $context from bottom up,
-   *   to account for values in list item wrappers.
-   *
-   * Note that this is not permissive at all: a source property trail string
-   * must map to an actual Drupal Entity structure, or else misery may ensue.
-   *
-   * Note here are the PropertyMapper methods named to match an extension of
-   * \EntityMetadataWrapper:
-   *
-   * @see \EntityListWrapper
-   * @see PropertyMapper::EntityListWrapper()
-   *
-   * @see \EntityStructureWrapper
-   * @see PropertyMapper::EntityStructureWrapper()
-   *
-   * @see \EntityDrupalWrapper
-   * @see PropertyMapper::EntityDrupalWrapper()
-   *
-   * @see \EntityValueWrapper
-   * @see PropertyMapper::EntityValueWrapper()
-   *
-   * @param array $context
-   *   Associative array, by reference, ultimately containing:
-   *   - source_prop_trail: Indexed array format of a concatenated source
-   *     property string.
-   *   - final_wrapper: See strategy above.
-   *   - final_dest_prop: See strategy above.
-   */
-  protected function getFinalWrapper(\EntityMetadataWrapper $wrapper, array &$context) {
-  }
-
-  protected function EntityMetadataWrapper(\EntityMetadataWrapper $wrapper, array &$context) {
-  }
-
-  /**
-   * @param \EntityMetadataWrapper $wrapper
-   * @param array $context
-   *
+   * Calling this function from the triggering Entity initiates a recursive
+   * search through the \EntityMetadataWrapper object's lazy-loaded children,
+   * each of which may be a single object – or array of objects – of the types
+   * controlled by entity_metadata_wrapper():
+   * - \EntityListWrapper: Contains an array of one the types below.
+   * - \EntityStructureWrapper:
+   * - \EntityDrupalWrapper: An extension of \EntityStructureWrapper
+   * - \EntityValueWrapper:
    * @see entity_metadata_wrapper()
    *
-   * Note we may use EMW to get sitewide properties for use in YAML.
+   * Along the way, each EMW-class-named method will check if it's the last
+   * wrapper in the source property trail (the final wrapper will correspond to
+   * the last concatenated string source property, so if
+   * $context['source_prop_trail'] is empty, it's the last wrapper). If not the
+   * last wrapper, it will hand off to the next child again via this
+   * MarshallWrapperClass method. The final wrapper will set
+   * $context['final_source_prop_value'] with the wrapper's normalized value.
+   *
+   * The exception is EntityListWrapper, which must store the
+   * $context['final_source_prop_value'] value from each of it's children, and
+   * at the end reset that to the stored array to pass up to it's calling class.
+   * Note that in this case, the $context['final_dest_prop'] will be temporarily
+   * useful only to the normalizer called from each EntityListWrapper item.
+   *
+   * @param \EntityMetadataWrapper $wrapper
+   * @param array $context
+   *   By reference. Associative array containing keys from yamlPropertyMapper
+   *   $config param, but additionally:
+   *   - final_source_prop_value: A single or array of normalized values for the
+   *     final source property in $config['source_prop_trail'] temporarily
+   *     assigned by reference for the current destination property.
+   *
+   * Here are the PropertyMapper methods named to match each valid extension of
+   * \EntityMetadataWrapper:
+   * @see \EntityListWrapper
+   * @see EntityListWrapper()
+   * @see \EntityStructureWrapper
+   * @see EntityStructureWrapper()
+   * @see \EntityDrupalWrapper
+   * @see EntityDrupalWrapper()
+   * @see \EntityValueWrapper
+   * @see EntityValueWrapper()
+   *
+   * @todo We may also want to use EMW for sitewide properties in YAML config:
    * @see entity_metadata_site_wrapper()
    * @see entity_metadata_system_entity_property_info()
    */
-  protected function MarshalWrapperClass(\EntityMetadataWrapper $wrapper, array &$context) {
+  protected function marshalWrapperClass(\EntityMetadataWrapper $wrapper, array &$context) {
     $class = get_class($wrapper);
     if (is_callable([$this, $class])) {
       $this->{$class}($wrapper, $context);
@@ -314,7 +298,6 @@ class PropertyMapper extends CrudQueue {
   /**
    * @param \EntityListWrapper $wrapper
    * @param array $context
-   * @return array
    *
    * @see \Symfony\Component\Serializer\Serializer::normalize()
    * @see \Drupal\aws_sqs_entity\Normalizer\AbstractEntityValueWrapperNormalizer::supportsNormalization()
@@ -322,53 +305,55 @@ class PropertyMapper extends CrudQueue {
   protected function EntityListWrapper(\EntityListWrapper $wrapper, array &$context) {
     $value = [];
     foreach ($wrapper->getIterator() as $delta => $itemWrapper) {
-      // If the item wrapper doesn't extend one of these two types, our base
-      // AbstractEntityValueWrapperNormalizer class won't support it.
-      // Note that \EntityDrupalWrapper extends \EntityStructureWrapper, and
-      // this covers all classes that extend \EntityMetadataWrapper.
-      // @todo use MarshalWrapperClass() instead.
-      // @todo get single values into an array in $context if called from here.
-      if ($itemWrapper instanceof \EntityListWrapper) {
-        $value[$delta] = $this->EntityListWrapper($itemWrapper, $context);
-      }
-      elseif ($itemWrapper instanceof \EntityDrupalWrapper) {
-        $value[$delta] = $this->EntityDrupalWrapper($itemWrapper, $context);
-      }
-      elseif ($itemWrapper instanceof \EntityStructureWrapper) {
-        $value[$delta] = $this->EntityStructureWrapper($itemWrapper, $context);
-      }
-      elseif ($itemWrapper instanceof \EntityValueWrapper) {
-        $value[$delta] = $this->EntityValueWrapper($itemWrapper, $context);
+      $this->marshalWrapperClass($wrapper, $context);
+      if (isset($context['final_source_prop_value'])) {
+        $value[] = $context['final_source_prop_value'];
+        unset($context['final_source_prop_value']);
       }
     }
-    return $value;
+    $context['final_source_prop_value'] = $value;
   }
 
   /**
    * @param \EntityMetadataWrapper $wrapper
    * @param array $context
-   * @return array|object|\Symfony\Component\Serializer\Normalizer\scalar
    */
   protected function EntityValueWrapper(\EntityMetadataWrapper $wrapper, array &$context) {
-    return $this->normalize($wrapper, $context);
+    if (!empty($context['source_prop_trail'])) {
+      $next_source_prop = array_shift($context['source_prop_trail']);
+      $this->marshalWrapperClass($wrapper->{$next_source_prop}, $context);
+    }
+    else {
+      $context['final_source_prop_value'] = $this->normalize($wrapper, $context);
+    }
   }
 
   /**
    * @param \EntityStructureWrapper $wrapper
    * @param array $context
-   * @return array|object|\Symfony\Component\Serializer\Normalizer\scalar
    */
   protected function EntityStructureWrapper(\EntityStructureWrapper $wrapper, array &$context) {
-    return $this->normalize($wrapper, $context);
+    if (!empty($context['source_prop_trail'])) {
+      $next_source_prop = array_shift($context['source_prop_trail']);
+      $this->marshalWrapperClass($wrapper->{$next_source_prop}, $context);
+    }
+    else {
+      $context['final_source_prop_value'] = $this->normalize($wrapper, $context);
+    }
   }
 
   /**
    * @param \EntityDrupalWrapper $wrapper
    * @param array $context
-   * @return array|object|\Symfony\Component\Serializer\Normalizer\scalar
    */
   protected function EntityDrupalWrapper(\EntityDrupalWrapper $wrapper, array &$context) {
-    return $this->normalize($wrapper, $context);
+    if (!empty($context['source_prop_trail'])) {
+      $next_source_prop = array_shift($context['source_prop_trail']);
+      $this->marshalWrapperClass($wrapper->{$next_source_prop}, $context);
+    }
+    else {
+      $context['final_source_prop_value'] = $this->normalize($wrapper, $context);
+    }
   }
 
   /**
