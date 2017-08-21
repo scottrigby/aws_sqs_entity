@@ -224,6 +224,7 @@ class PropertyMapper extends CrudQueue {
       $this->marshalWrapperClass($this->wrapper, $source_context);
       if (isset($source_context['final_source_prop_value'])) {
         $value = $source_context['final_source_prop_value'];
+        drupal_alter('aws_sqs_entity_normalized_value', $value, $source_context);
       }
 
       $data[$dest_prop] = $value;

@@ -88,5 +88,25 @@ function hook_aws_sqs_entity_value_wrapper_normalizers() {
 }
 
 /**
+ * Allows modules some final normalization of rendered data.
+ *
+ * One use case for this hook is a destination property that should only accept
+ * a string, but is mapped to a multi-delta Drupal field. Since the current
+ * design of PropertyMapper::EntityListWrapper() method is to always return an
+ * array of values, there is currently no other way to specify that the value
+ * should return a single value instead of a string.
+ *
+ * @todo Perhaps better yet, instead invoke another hook for normalizers
+ *   intended to change already normalized values, so alteration can be done in
+ *   normalizers rather than alter hook implementations.
+ */
+function hook_aws_sqs_entity_normalized_value_alter(&$value, array $context) {
+  // Example: always ensure the from "uuid" destination property is a string.
+  if (in_array($context['final_dest_prop'], ['uuid'])) {
+    $value = is_array($value) ? reset($value) : $value;
+  }
+}
+
+/**
  * @} End of "addtogroup hooks".
  */
