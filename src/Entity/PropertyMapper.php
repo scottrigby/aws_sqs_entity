@@ -309,9 +309,9 @@ class PropertyMapper extends CrudQueue {
   protected function EntityListWrapper(\EntityListWrapper $wrapper, array &$context) {
     $value = [];
     foreach ($wrapper->getIterator() as $delta => $itemWrapper) {
-      $this->marshalWrapperClass($wrapper, $context);
+      $this->marshalWrapperClass($itemWrapper, $context);
       if (isset($context['final_source_prop_value'])) {
-        $value[] = $context['final_source_prop_value'];
+        $value[$delta] = $context['final_source_prop_value'];
         unset($context['final_source_prop_value']);
       }
     }
