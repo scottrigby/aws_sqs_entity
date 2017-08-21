@@ -222,7 +222,9 @@ class PropertyMapper extends CrudQueue {
       // plain strings (above) will pass through to the final $data array.
       // @todo Support ORing (with "|") before setting final_source_prop_value.
       $this->marshalWrapperClass($this->wrapper, $source_context);
-      if (isset($source_context['final_source_prop_value'])) {
+      // Check if array key exists because we also want to capture NULL values
+      // if set.
+      if (array_key_exists('final_source_prop_value', $source_context)) {
         $value = $source_context['final_source_prop_value'];
         drupal_alter('aws_sqs_entity_normalized_value', $value, $source_context);
       }
