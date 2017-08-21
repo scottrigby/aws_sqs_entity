@@ -308,7 +308,16 @@ class PropertyMapper extends CrudQueue {
    */
   protected function EntityListWrapper(\EntityListWrapper $wrapper, array &$context) {
     $value = [];
+
+    // Capture source_prop_trail before the iterator loop, because each item
+    // wrapper may alter this value by reference, and we want each to start
+    // clean.
+    $source_prop_trail = isset($context['source_prop_trail']) ? $context['source_prop_trail'] : [];
+
     foreach ($wrapper->getIterator() as $delta => $itemWrapper) {
+      // Reset source_prop_trail for each item wrapper. See note above.
+      $context['source_prop_trail'] = $source_prop_trail;
+
       $this->marshalWrapperClass($itemWrapper, $context);
       if (isset($context['final_source_prop_value'])) {
         $value[$delta] = $context['final_source_prop_value'];
