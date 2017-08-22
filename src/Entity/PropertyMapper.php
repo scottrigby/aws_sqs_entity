@@ -197,39 +197,61 @@ class PropertyMapper extends CrudQueue {
         continue;
       }
 
-      // Reset relevant context for each source property.
-      $source_context = $context;
+      // Add current destination property to context for normalizers.
+      $context['final_dest_prop'] = $dest_prop;
+      $context['or_source_props'] = explode('|', $source_prop);
+      // Reset source prop value before each check, because $context is by
+      // reference.
+      if (isset($context['final_source_prop_value'])) {
+        unset($context['final_source_prop_value']);
+      }
+      $this->checkOring($context);
 
       // Pass through strings as the value if they're not an Entity property
       // recognized by EMD->FIELD.
-      $value = $source_prop;
+      $data[$dest_prop] = isset($context['final_source_prop_value']) ? $context['final_source_prop_value'] : $source_prop;
+    }
+  }
 
-      // Add current destination property to context for normalizers.
-      $source_context['final_dest_prop'] = $dest_prop;
+  /**
+   * Supports ORing source property value syntax, and dot-notation syntax.
+   *
+   * Example YAML:
+   * @code
+   * itemType: post
+   * field_map:
+   *   oringExample: field_custom_title|title
+   *   propertyTrailExample: field_people_collection.field_person.uuid
+   * @endcode
+   *
+   * @todo Along the property trail, if an item doesn't exist in the middle, the
+   *   final source property won't exist, so the value will not be returned at
+   *   all, and values like field_person.uuid will pass through as a string.
+   *   What we want is to return NULL at the first NULL value in the property
+   *   trail.
+   *
+   * @param array $context
+   */
+  protected function checkOring(array &$context) {
+    $source_prop = array_shift($context['or_source_props']);
 
-      // If the Source property is a dot-concatenated string, this syntax
-      // signifies a trail of properties to discover within the source
-      // \EntityMetadataWrapper object created for the triggering Entity. In
-      // either case $context['source_prop_trail'] is set to an array of these
-      // properties. Example YAML block:
-      // @code
-      // field_map:
-      //   destProperty: field_my_field_collection.field_my_entityreference.uuid
-      // @endcode
-      $source_context['source_prop_trail'] = explode('.', $source_prop);
+    $context['source_prop_trail'] = explode('.', $source_prop);
 
-      // Check if there is a valid normalized value, so that - if there is not -
-      // plain strings (above) will pass through to the final $data array.
-      // @todo Support ORing (with "|") before setting final_source_prop_value.
-      $this->marshalWrapperClass($this->wrapper, $source_context);
-      // Check if array key exists because we also want to capture NULL values
-      // if set.
-      if (array_key_exists('final_source_prop_value', $source_context)) {
-        $value = $source_context['final_source_prop_value'];
-        drupal_alter('aws_sqs_entity_normalized_value', $value, $source_context);
+    // Check if there is a valid normalized value, so that - if there is not -
+    // plain strings will pass through to the final $data array.
+    $this->marshalWrapperClass($this->wrapper, $context);
+
+    // Check if array key exists because we normally want to capture NULL
+    // values if set. The exception is if ORing is defined.
+    if (array_key_exists('final_source_prop_value', $context)) {
+      $value = $context['final_source_prop_value'];
+      drupal_alter('aws_sqs_entity_normalized_value', $value, $context);
+      $context['final_source_prop_value'] = $value;
+
+      // If the value is NULL, continue to the next OR in the array.
+      if (is_null($value) && !empty($context['or_source_props'])) {
+        $this->checkOring($context);
       }
-
-      $data[$dest_prop] = $value;
     }
   }
 
