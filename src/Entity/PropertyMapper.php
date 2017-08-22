@@ -209,7 +209,7 @@ class PropertyMapper extends CrudQueue {
 
       // Pass through strings as the value if they're not an Entity property
       // recognized by EMD->FIELD.
-      $data[$dest_prop] = isset($context['final_source_prop_value']) ? $context['final_source_prop_value'] : $source_prop;
+      $data[$dest_prop] = array_key_exists('final_source_prop_value', $context) ? $context['final_source_prop_value'] : $source_prop;
     }
   }
 
@@ -223,12 +223,6 @@ class PropertyMapper extends CrudQueue {
    *   oringExample: field_custom_title|title
    *   propertyTrailExample: field_people_collection.field_person.uuid
    * @endcode
-   *
-   * @todo Along the property trail, if an item doesn't exist in the middle, the
-   *   final source property won't exist, so the value will not be returned at
-   *   all, and values like field_person.uuid will pass through as a string.
-   *   What we want is to return NULL at the first NULL value in the property
-   *   trail.
    *
    * @param array $context
    */
