@@ -96,13 +96,6 @@ function hook_aws_sqs_entity_value_wrapper_normalizers() {
  * array of values, there is currently no other way to specify that the value
  * should return a single value instead of a string.
  *
- * @param mixed $value
- *   The normalized Drupal source value for the mapped destination key.
- * @param array $context
- *   See $context param of PropertyMapper::yamlPropertyMapper().
- *
- * @see \Drupal\aws_sqs_entity\Entity\PropertyMapper::yamlPropertyMapper()
- *
  * @todo Perhaps better yet, instead invoke another hook for normalizers
  *   intended to change already normalized values, so alteration can be done in
  *   normalizers rather than alter hook implementations.
@@ -111,35 +104,6 @@ function hook_aws_sqs_entity_normalized_value_alter(&$value, array $context) {
   // Example: always ensure the from "uuid" destination property is a string.
   if (in_array($context['final_dest_prop'], ['uuid'])) {
     $value = is_array($value) ? reset($value) : $value;
-  }
-}
-
-/**
- * Allows modules to alter the final message body.
- *
- * @param array $data
- *   The SQS message body data. See $data param of CrudQueue::getMessageBody().
- * @param array $context
- *   See $context param of PropertyMapper::yamlPropertyMapper().
- *
- * @see \Drupal\aws_sqs_entity\Entity\PropertyMapper::getMessageBody()
- */
-function hook_aws_sqs_entity_message_body_alter(array &$data, array $context) {
-  // Example: The external resource type "exampleResourceType" has a property
-  // "exampleProperty" that should be an array of objects, or empty array.
-  if ('exampleResourceType' == $context['item_type'] && isset($data['exampleProperty'])) {
-    switch (gettype($data['exampleProperty'])) {
-      case 'array':
-      case 'boolean':
-      case 'integer':
-      case 'double':
-      case 'string':
-        $data['exampleProperty'] = [(object) $data['exampleProperty']];
-        break;
-      case 'NULL':
-        $data['exampleProperty'] = [];
-        break;
-    }
   }
 }
 
