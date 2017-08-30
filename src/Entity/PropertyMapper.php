@@ -202,7 +202,7 @@ class PropertyMapper extends CrudQueue {
       $context['or_source_props'] = explode('|', $source_prop);
       // Reset source prop value before each check, because $context is by
       // reference.
-      if (isset($context['final_source_prop_value'])) {
+      if (array_key_exists('final_source_prop_value', $context)) {
         unset($context['final_source_prop_value']);
       }
       $this->checkOring($context);
