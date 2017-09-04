@@ -170,7 +170,7 @@ class PropertyMapper extends CrudQueue {
       $this->yamlPropertyMapper($this->config['field_map'], $data, $this->context);
     }
 
-    drupal_alter('aws_sqs_entity_message_body', $data, $context);
+    drupal_alter('aws_sqs_entity_message_body', $data, $this->context);
 
     return $data;
   }
