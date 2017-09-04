@@ -44,7 +44,6 @@ function hook_aws_sqs_entity_send_item($type, $entity, $op) {
  * - aws_sqs_entity.property_mapper.{ENTITY_TYPE}.{BUNDLE}.yml
  *
  * Each YAML file should contain:
- * - itemType: The name of the external API resource.
  * - field_map: An associative array of fields or properties on the Drupal
  *   Entity, keyed by the mapped external API resource fields. Values may be
  *   an associative array of nested field_map key/value pairs.
@@ -52,7 +51,6 @@ function hook_aws_sqs_entity_send_item($type, $entity, $op) {
  * Example YAML config:
  * - my_module/path/to/config/aws_sqs_entity.property_mapper.node.article.yaml:
  * @code
- * itemType: post
  * field_map:
  *   uuid: uuid
  *   revision: vid

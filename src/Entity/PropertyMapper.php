@@ -36,6 +36,11 @@ class PropertyMapper extends CrudQueue {
   protected $normalizers = [];
 
   /**
+   * @var array
+   */
+  protected $context = [];
+
+  /**
    * {@inheritdoc}
    *
    * Additionally instantiate variables on this class needed for schema mapping.
@@ -65,6 +70,16 @@ class PropertyMapper extends CrudQueue {
 
   protected function setBundle() {
     $this->bundle = $this->wrapper->getBundle();
+  }
+
+  protected function setContext(string $key, $value) {
+    $this->context[$key] = $value;
+  }
+
+  protected function unsetContext(string $key) {
+    if (isset($this->context[$key])) {
+      unset($this->context[$key]);
+    }
   }
 
   /**
@@ -136,7 +151,7 @@ class PropertyMapper extends CrudQueue {
    * - ::serialize() must be static due to class inheritance, so we can not
    *   access $this.
    * - We can not easily pass context to ::serialize() because it is called by
-   *   AwsSqsQueue::createItem(), which would have to be overwridden just to do
+   *   AwsSqsQueue::createItem(), which would have to be overridden just to do
    *   this (and even then, $context would need to be passed by overloading the
    *   method, again because of class inheritance). That is a lot of extra code
    *   to maintain just to keep that method's semantic value here.
@@ -148,14 +163,11 @@ class PropertyMapper extends CrudQueue {
   protected function getMessageBody() {
     $data = [];
 
-    $context = [
-      'item_type' => $this->config['itemType'],
-      'wrapper' => $this->wrapper,
-      'config' => $this->config,
-    ];
+    $this->setContext('wrapper', $this->wrapper);
+    $this->setContext('config', $this->config);
 
     if (isset($this->config['field_map'])) {
-      $this->yamlPropertyMapper($this->config['field_map'], $data, $context);
+      $this->yamlPropertyMapper($this->config['field_map'], $data, $this->context);
     }
 
     return $data;
@@ -171,8 +183,6 @@ class PropertyMapper extends CrudQueue {
    *   The return value of getMessageBody().
    * @param array $context
    *   By reference. Associative array containing:
-   *   - item_type: Destination item type corresponding to the triggering
-   *     Entity.
    *   - wrapper: \EntityDrupalWrapper for triggering entity.
    *   - config: YAML config for triggering Entity.
    *   - source_prop_trail: An array of source property definitions temporarily
@@ -218,7 +228,6 @@ class PropertyMapper extends CrudQueue {
    *
    * Example YAML:
    * @code
-   * itemType: post
    * field_map:
    *   oringExample: field_custom_title|title
    *   propertyTrailExample: field_people_collection.field_person.uuid
@@ -395,7 +404,6 @@ class PropertyMapper extends CrudQueue {
    *   EntityMetadataWrapper.
    * @param array $context
    *   A context array, containing:
-   *   - item_type: The YAML config "item_type" value.
    *   - wrapper: The CRUD-triggering EntityMetadataWrapper.
    *   - config: Parsed YAML config matching the CRUD-triggering Entity.
    *   - source_prop_trail: An array of Drupal Entity mapped value properties
