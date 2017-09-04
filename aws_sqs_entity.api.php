@@ -125,7 +125,7 @@ function hook_aws_sqs_entity_normalized_value_alter(&$value, array $context) {
 function hook_aws_sqs_entity_message_body_alter(array &$data, array $context) {
   // Example: The external resource type "exampleResourceType" has a property
   // "exampleProperty" that should be an array of objects, or empty array.
-  if ('exampleResourceType' == $context['item_type'] && isset($data['exampleProperty'])) {
+  if (isset($data['exampleProperty'])) {
     switch (gettype($data['exampleProperty'])) {
       case 'array':
       case 'boolean':
