@@ -212,12 +212,18 @@ class PropertyMapper extends CrudQueue {
       // Add current destination property to context for normalizers.
       $context['final_dest_prop'] = $dest_prop;
       $context['or_source_props'] = explode('|', $source_prop);
+      $context['and_source_props'] = preg_match('/\+/', $source_prop) ? explode('+', $source_prop) : NULL;
       // Reset source prop value before each check, because $context is by
       // reference.
       if (array_key_exists('final_source_prop_value', $context)) {
         unset($context['final_source_prop_value']);
       }
-      $this->checkOring($context);
+      // Check if we are ANDing or ORing.
+      if(!empty($context['and_source_props'])){
+        $this->checkAnding($context);
+      } else {
+        $this->checkOring($context);
+      }
 
       // Pass through strings as the value if they're not an Entity property
       // recognized by EMD->FIELD.
@@ -256,6 +262,52 @@ class PropertyMapper extends CrudQueue {
       // If the value is NULL, continue to the next OR in the array.
       if (is_null($value) && !empty($context['or_source_props'])) {
         $this->checkOring($context);
+      }
+    }
+  }
+
+  /**
+   * Supports ANDing source property value syntax, and dot-notation syntax.
+   *
+   * Example YAML:
+   * @code
+   * field_map:
+   *   andingExample: field_movie_primary_genre.uuid+field_movie_secondary_genre.uuid
+   *   propertyTrailExample: field_movie_primary_genre.uuid
+   * @endcode
+   *
+   * @param array $context
+   */
+  protected function checkAnding(array &$context, array $mergedArray = []) {
+    $source_prop = array_shift($context['and_source_props']);
+
+    $context['source_prop_trail'] = explode('.', $source_prop);
+
+    // Check if there is a valid normalized value, so that - if there is not -
+    // plain strings will pass through to the final $data array.
+    $this->marshalWrapperClass($this->wrapper, $context);
+
+    // Check if array key exists because we normally want to capture NULL
+    // values if set. The exception is if ANDing is defined.
+    if (array_key_exists('final_source_prop_value', $context)) {
+      $value = $context['final_source_prop_value'];
+      drupal_alter('aws_sqs_entity_normalized_value', $value, $context);
+
+      if (!empty($value)) {
+        if (!is_array($value)) {
+          $mergedArray[] = $value;
+        }
+        else {
+          $mergedArray = array_merge($value, $mergedArray);
+        }
+        $mergedArray = array_unique($mergedArray, SORT_REGULAR);
+      }
+
+      $context['final_source_prop_value'] = $mergedArray;
+
+      // Continue to the next AND item in the array.
+      if (!empty($context['and_source_props'])) {
+        $this->checkAnding($context, $mergedArray);
       }
     }
   }
