@@ -119,11 +119,12 @@ class CrudQueue extends \AwsSqsQueue {
    *
    * @return \Drupal\aws_sqs_entity\Entity\CrudQueue|false
    */
-  static public function getQueue($type, $entity, $op) {
+  static public function getQueue(string $type, $entity, string $op) {
     $class = variable_get('aws_sqs_entity_queue_class', AWS_SQS_ENTITY_QUEUE_CLASS_DEFAULT);
     $name = variable_get('aws_sqs_entity_queue_name');
+    $check_rules = self::checkRules($type, $entity, $op);
 
-    if (!$class || !$name) {
+    if (!$class || !$name || !$check_rules) {
       return FALSE;
     }
 
@@ -189,10 +190,6 @@ class CrudQueue extends \AwsSqsQueue {
    *   TRUE if the item is sent successfully, FALSE otherwise.
    */
   public function sendItem() {
-    if (!$this->checkRules()) {
-      return FALSE;
-    }
-
     // Always a required step before attempting to create a queue item.
     $this->createQueue();
 
@@ -337,14 +334,20 @@ class CrudQueue extends \AwsSqsQueue {
   /**
    * Checks rules to see if an Entity CRUD operation should trigger a SQS message.
    *
+   * @param string $type
+   * @param object $entity
+   * @param string $op
+   *
+   * @see getQueue()
+   *
    * @return bool
    *   Whether or not the CRUD operation should trigger a SQS message for the
    *   given Entity.
    */
-  public function checkRules() {
+  public static function checkRules(string $type, $entity, string $op) {
     $rules = CrudQueue::getRules();
-    list(,, $bundle) = entity_extract_ids($this->type, $this->entity);
-    return !empty($rules[$this->type][$bundle]) && in_array($this->op, $rules[$this->type][$bundle]);
+    list(,, $bundle) = entity_extract_ids($type, $entity);
+    return !empty($rules[$type][$bundle]) && in_array($op, $rules[$type][$bundle]);
   }
 
   /**
