@@ -212,16 +212,21 @@ class PropertyMapper extends CrudQueue {
       // Add current destination property to context for normalizers.
       $context['final_dest_prop'] = $dest_prop;
       $context['or_source_props'] = explode('|', $source_prop);
-      $context['and_source_props'] = preg_match('/\+/', $source_prop) ? explode('+', $source_prop) : NULL;
+      $context['and_source_props'] = strpos($source_prop, '+') !== false ? explode('+', $source_prop) : NULL;
       // Reset source prop value before each check, because $context is by
       // reference.
       if (array_key_exists('final_source_prop_value', $context)) {
         unset($context['final_source_prop_value']);
       }
       // Check if we are ANDing or ORing.
-      if(!empty($context['and_source_props'])){
+      // @todo Update hook examples in aws_sqs_entity.api.php to reflect this
+      //   support.
+      // @todo Currently we allow either AND or OR, not AND and/or OR. We
+      //   should do this by adopting AND/OR grouping syntax.
+      if (!empty($context['and_source_props'])) {
         $this->checkAnding($context);
-      } else {
+      }
+      else {
         $this->checkOring($context);
       }
 
