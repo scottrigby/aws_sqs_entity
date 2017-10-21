@@ -157,7 +157,7 @@ class CrudQueue extends \AwsSqsQueue {
    *
    * @see $messageAttributes
    */
-  protected function setMessageAttribute($key, $dataType, $valueType, $value) {
+  public function setMessageAttribute($key, $dataType, $valueType, $value) {
     $this->messageAttributes[$key] = array(
       $valueType => $value,
       // DataType is required.
