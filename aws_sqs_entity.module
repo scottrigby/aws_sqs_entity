@@ -30,27 +30,42 @@ function aws_sqs_entity_menu() {
  * Implements hook_entity_insert().
  */
 function aws_sqs_entity_entity_insert($entity, $type) {
-  $op = 'insert';
-  if ($queue = CrudQueue::getQueue($type, $entity, $op)) {
-    $queue->sendItem();
-  }
+  aws_sqs_entity_crud($entity, $type, 'insert');
 }
 
 /**
  * Implements hook_entity_update().
  */
 function aws_sqs_entity_entity_update($entity, $type) {
-  $op = 'update';
-  if ($queue = CrudQueue::getQueue($type, $entity, $op)) {
-    $queue->sendItem();
-  }
+  aws_sqs_entity_crud($entity, $type, 'update');
 }
 
 /**
  * Implements hook_entity_delete().
  */
 function aws_sqs_entity_entity_delete($entity, $type) {
-  $op = 'delete';
+  aws_sqs_entity_crud($entity, $type, 'delete');
+}
+
+/**
+ * Wrapper for our Entity CRUD hook implementations.
+ *
+ * @param $entity
+ *   The CRUD-triggered Entity.
+ * @param $type
+ *   The CRUD-triggered Entity type.
+ * @param $op
+ *   The CRUD operation from hook_entity_OPERATION().
+ */
+function aws_sqs_entity_crud($entity, $type, $op) {
+  // Get the fully loaded entity for Field Collections. This is a particularly
+  // tricky bug when - with certain combinations of modules - some Entity types
+  // such as field_collection, when EMD-wrapped, will fail either on foreach
+  // getIterator(), or on value() - only when CRUD-triggered.
+  // @todo Investigate this patch: https://www.drupal.org/node/1013428
+  list($id) = entity_extract_ids($type, $entity);
+  $entity = entity_Load_single($type, $id);
+
   if ($queue = CrudQueue::getQueue($type, $entity, $op)) {
     $queue->sendItem();
   }
