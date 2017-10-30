@@ -440,12 +440,18 @@ class PropertyMapper extends CrudQueue {
   /**
    * @param \EntityMetadataWrapper $wrapper
    * @param array $context
+   *   By reference. Associative array containing keys from yamlPropertyMapper
+   *   $config param, but additionally:
+   *   - final_source_prop: This will be temporarily useful only to the
+   *     normalizer called from normalize() in this method.
    */
   protected function marshalOrSetFinalSourcePropValue(\EntityMetadataWrapper $wrapper, array &$context) {
     if (!empty($context['source_prop_trail'])) {
       $next_source_prop = array_shift($context['source_prop_trail']);
 
       if (isset($wrapper->{$next_source_prop})) {
+        // Store this in $context for the else condition below for normalize().
+        $context['final_source_prop'] = $next_source_prop;
         $this->marshalWrapperClass($wrapper->{$next_source_prop}, $context);
       }
     }
