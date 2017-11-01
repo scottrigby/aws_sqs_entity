@@ -305,7 +305,7 @@ class PropertyMapper extends CrudQueue {
         else {
           $mergedArray = array_merge($value, $mergedArray);
         }
-        $mergedArray = array_unique($mergedArray, SORT_REGULAR);
+        $mergedArray = array_values(array_unique($mergedArray, SORT_REGULAR));
       }
 
       $context['final_source_prop_value'] = $mergedArray;
