@@ -60,14 +60,6 @@ function aws_sqs_entity_entity_delete($entity, $type) {
  *   Optionally skip CrudQueue::checkRules().
  */
 function aws_sqs_entity_crud($entity, $type, $op, $skip_rules = FALSE) {
-  // Get the fully loaded entity for Field Collections. This is a particularly
-  // tricky bug when - with certain combinations of modules - some Entity types
-  // such as field_collection, when EMD-wrapped, will fail either on foreach
-  // getIterator(), or on value() - only when CRUD-triggered.
-  // @todo Investigate this patch: https://www.drupal.org/node/1013428
-  list($id) = entity_extract_ids($type, $entity);
-  $entity = entity_load_single($type, $id);
-
   if ($queue = CrudQueue::getQueue($type, $entity, $op, $skip_rules)) {
     $queue->sendItem();
   }

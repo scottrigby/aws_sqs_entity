@@ -130,6 +130,14 @@ class CrudQueue extends \AwsSqsQueue {
       return FALSE;
     }
 
+    // Get the fully loaded entity for Field Collections. This is a particularly
+    // tricky bug when - with certain combinations of modules - some Entity
+    // types such as field_collection, when EMD-wrapped, will fail either on
+    // foreach getIterator(), or on value() - only when CRUD-triggered.
+    // @todo Investigate this patch: https://www.drupal.org/node/1013428
+    list($id) = entity_extract_ids($type, $entity);
+    $entity = entity_load_single($type, $id);
+
     // @todo Pass any overloaded args.
     return new $class($name, $type, $entity, $op);
   }
