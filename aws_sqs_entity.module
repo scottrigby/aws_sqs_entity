@@ -66,7 +66,7 @@ function aws_sqs_entity_crud($entity, $type, $op, $skip_rules = FALSE) {
   // getIterator(), or on value() - only when CRUD-triggered.
   // @todo Investigate this patch: https://www.drupal.org/node/1013428
   list($id) = entity_extract_ids($type, $entity);
-  $entity = entity_Load_single($type, $id);
+  $entity = entity_load_single($type, $id);
 
   if ($queue = CrudQueue::getQueue($type, $entity, $op, $skip_rules)) {
     $queue->sendItem();
