@@ -13,18 +13,26 @@
 /**
  * Allows modules to respond after an item is sent to the AWS Queue.
  *
- * @param string $type
- *   The Entity type.
- * @param object $entity
- *   The Entity object.
- * @param string $op
- *   The Entity CRUD operation. Can be one of:
- *   - insert
- *   - update
- *   - delete
+ * @param array $item_info
+ *   An array of contextual data with the following keys:
+ *     'type' => Entity type
+ *     'entity' => Entity object
+ *     'op' => Operation: 'insert', 'update', or 'delete'
+ *     'result' => Boolean representing success or failure
+ *     'data' => The message data
+ *     'message' => [
+ *       'attributes' => SQS Message attributes
+ *       'id' => SQS Message ID
+ *     ],
+ *     'error' => [ [ONLY PRESENT IN ERROR CASES]
+ *       'response_message' => Response message
+ *       'response_code' => Response code
+ *       'response_raw' => Raw response data
+ *     ],
  */
-function hook_aws_sqs_entity_send_item($type, $entity, $op) {
+function hook_aws_sqs_entity_send_item($item_info) {
   // Example: Set custom message.
+  extract($item_info);
   $args = array('%op' => $op, '%type' => $type, '%title' => entity_label($type, $entity));
   drupal_set_message(t('Congrats! You posted a SQS %op message for the %type: %title', $args));
 }

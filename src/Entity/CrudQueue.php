@@ -46,6 +46,12 @@ class CrudQueue extends \AwsSqsQueue {
   protected $messageAttributes;
 
   /**
+   * @var string $messageId
+   *   The SQS MessageId.
+   */
+  protected $messageId;
+
+  /**
    * {@inheritdoc}
    *
    * This method should not be called directly. Instead, use getQueue().
@@ -176,6 +182,36 @@ class CrudQueue extends \AwsSqsQueue {
   }
 
   /**
+   * Get the SQS Message Attributes.
+   *
+   * @return array
+   *   The SQS Message Attributes.
+   */
+  protected function getMessageAttributes() {
+    return $this->messageAttributes;
+  }
+
+  /**
+   * Set the SQS Message ID.
+   *
+   * @param string $id
+   *   The SQS Message ID.
+   */
+  protected function setMessageId($id) {
+    $this->messageId = $id;
+  }
+
+  /**
+   * Get the SQS Message ID.
+   *
+   * @return string|null
+   *  The SQS Message ID of the last message. If no message sent yet, returns NULL.
+   */
+  protected function getMessageId() {
+    return $this->messageId;
+  }
+
+  /**
    * Gets the $messageBody var, for the queue item message body content.
    *
    * Override this method if you want to normalize, or otherwise alter the queue
@@ -200,14 +236,13 @@ class CrudQueue extends \AwsSqsQueue {
    *   TRUE if the item is sent successfully, FALSE otherwise.
    */
   public function sendItem() {
+    $result = FALSE;
     // Always a required step before attempting to create a queue item.
     $this->createQueue();
 
     $data = $this->getMessageBody();
-    if ($result = $this->createItem($data)) {
-      // Pass original keys to notification hook. This hook could allow, for
-      // example, various kinds of reporting.
-      module_invoke_all('aws_sqs_entity_send_item', $this->type, $this->entity, $this->op);
+    try {
+      $result = $this->createItem($data);
 
       if (variable_get('aws_sqs_entity_display_message')) {
         list($id,, $bundle) = entity_extract_ids($this->type, $this->entity);
@@ -223,6 +258,40 @@ class CrudQueue extends \AwsSqsQueue {
       }
       $created = TRUE;
     }
+    catch (\Aws\Sqs\Exception\SqsException $e) {
+      // For SQS Exceptions, we can gather additional debugging data.
+      $error['response_message'] = format_string(
+        '@message Error type: @type.',
+        [
+          '@message' => $e->getMessage(),
+          '@type' => $e->getAwsErrorType(),
+        ]
+      );
+      $error['response_code'] = $e->getAwsErrorCode();
+      $error['response_raw'] = $e->getResponse();
+    }
+    catch (\Exception $e) {
+      $error['response_message'] = $e->getMessage();
+      $error['response_code'] = $e->getCode();
+    }
+
+    // Pass original keys to notification hook. This hook could allow, for
+    // example, various kinds of reporting.
+    $item_info = [
+      'type' => $this->type,
+      'entity' => $this->entity,
+      'op' => $this->op,
+      'result' => $result,
+      'data' => $data,
+      'message' => [
+        'attributes' => $this->getMessageAttributes(),
+        'id' => $this->getMessageId(),
+      ],
+    ];
+    if (isset($error)) {
+      $debug_info['error'] = $error;
+    }
+    module_invoke_all('aws_sqs_entity_send_item', $item_info);
 
     if (variable_get('aws_sqs_entity_debug_message') || variable_get('aws_sqs_entity_debug_watchdog')) {
       // @todo Allow this debug pattern to be configured.
@@ -302,6 +371,7 @@ class CrudQueue extends \AwsSqsQueue {
       $args['MessageAttributes'] = $this->messageAttributes;
     }
     $result = $this->getClient()->sendMessage($args);
+    $this->setMessageId($result->get('MessageId'));
 
     return (bool) $result;
   }
