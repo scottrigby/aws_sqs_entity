@@ -88,8 +88,22 @@ class PropertyMapper extends CrudQueue {
    * @see hook_aws_sqs_entity_property_mapper_config_paths()
    */
   protected function setConfig() {
+    $this->config = self::getConfigFile($this->type, $this->bundle);
+  }
+
+  /**
+   * Get the config for the current bundle.
+   *
+   * @param string $type
+   *   The entity type.
+   * @param string $bundle
+   *   The entity bundle.
+   *
+   * @return array|null
+   */
+  public static function getConfigFile($type, $bundle) {
     $paths = module_invoke_all('aws_sqs_entity_property_mapper_config_paths');
-    $file_pattern = join('.', [$this->type, $this->bundle, 'yml']);
+    $file_pattern = join('.', [$type, $bundle, 'yml']);
     foreach ($paths as $path) {
       $filename = join('/', [$path, $file_pattern]);
       if (file_exists($filename)) {
@@ -98,9 +112,9 @@ class PropertyMapper extends CrudQueue {
         //   fail. If we need this, it appears that we may have to add some
         //   special string value to match to provide this support, such as
         //   "EMPTY_OBJECT".
-        $this->config = Yaml::parse(file_get_contents($filename));
+
         // The first file found wins.
-        break;
+        return Yaml::parse(file_get_contents($filename));
       }
     }
   }
