@@ -58,10 +58,15 @@ function aws_sqs_entity_entity_delete($entity, $type) {
  *   The CRUD operation from hook_entity_OPERATION().
  * @param bool $skip_rules
  *   Optionally skip CrudQueue::checkRules().
+ *
+ * @return bool Whether the entity published or not.
  */
 function aws_sqs_entity_crud($entity, $type, $op, $skip_rules = FALSE) {
-  if ($queue = CrudQueue::getQueue($type, $entity, $op, $skip_rules)) {
-    $queue->sendItem();
+  if ($queue = CrudQueue::getQueue($type, $entity, $op)) {
+    if (!$skip_rules && !$queue::checkRules($type, $entity, $op)) {
+      return FALSE;
+    }
+    return $queue->sendItem();
   }
 }
 
