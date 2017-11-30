@@ -48,7 +48,7 @@ function aws_sqs_entity_entity_delete($entity, $type) {
 }
 
 /**
- * Wrapper for our Entity CRUD hook implementations.
+ * AWS SQS Entity CRUD action wrapper.
  *
  * @param object $entity
  *   The CRUD-triggered Entity.
