@@ -88,7 +88,7 @@ class PropertyMapper extends CrudQueue {
    * @see hook_aws_sqs_entity_property_mapper_config_paths()
    */
   protected function setConfig() {
-    $this->config = self::getConfigFile($this->type, $this->bundle);
+    $this->config = self::getConfig($this->type, $this->bundle);
   }
 
   /**
@@ -101,7 +101,7 @@ class PropertyMapper extends CrudQueue {
    *
    * @return array|null
    */
-  public static function getConfigFile($type, $bundle) {
+  public static function getConfig($type, $bundle) {
     $paths = module_invoke_all('aws_sqs_entity_property_mapper_config_paths');
     $file_pattern = join('.', [$type, $bundle, 'yml']);
     foreach ($paths as $path) {
