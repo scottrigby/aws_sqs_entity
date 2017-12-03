@@ -120,19 +120,16 @@ class CrudQueue extends \AwsSqsQueue {
    *   - insert
    *   - update
    *   - delete
-   * @param bool $skip_rules
-   *   Optionally skip CrudQueue::checkRules().
    *
    * @see \Drupal\aws_sqs_entity\Entity\CrudQueue::__construct()
    *
    * @return \Drupal\aws_sqs_entity\Entity\CrudQueue|false
    */
-  static public function getQueue(string $type, $entity, string $op, bool $skip_rules = TRUE) {
+  static public function getQueue(string $type, $entity, string $op) {
     $class = variable_get('aws_sqs_entity_queue_class', AWS_SQS_ENTITY_QUEUE_CLASS_DEFAULT);
     $name = variable_get('aws_sqs_entity_queue_name');
-    $rules_pass = $skip_rules ? TRUE : self::checkRules($type, $entity, $op);
 
-    if (!$class || !$name || !$rules_pass) {
+    if (!$class || !$name) {
       return FALSE;
     }
 
