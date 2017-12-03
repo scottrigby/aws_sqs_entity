@@ -395,7 +395,7 @@ class PropertyMapper extends CrudQueue {
    * @see entity_metadata_site_wrapper()
    * @see entity_metadata_system_entity_property_info()
    */
-  protected function marshalWrapperClass(\EntityMetadataWrapper $wrapper, array &$context) {
+  public function marshalWrapperClass(\EntityMetadataWrapper $wrapper, array &$context) {
     $class = get_class($wrapper);
     if (is_callable([$this, $class])) {
       $this->{$class}($wrapper, $context);
