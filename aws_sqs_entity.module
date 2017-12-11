@@ -83,7 +83,13 @@ function aws_sqs_entity_aws_sqs_entity_value_wrapper_normalizers() {
  * Implements hook_module_implements_alter().
  */
 function aws_sqs_entity_module_implements_alter(&$implementations, $hook) {
-  if ($hook == 'aws_sqs_entity_value_wrapper_normalizers') {
+  $hooks = [
+    'aws_sqs_entity_value_wrapper_normalizers',
+    'entity_insert',
+    'entity_update',
+    'entity_delete',
+  ];
+  if (in_array($hook, $hooks)) {
     // Move aws_sqs_entity_aws_sqs_entity_value_wrapper_normalizers() to the end
     // of the list, so that other normalizers can fire first, and if no
     // supporting normalizer is found, we fall back to
