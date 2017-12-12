@@ -104,10 +104,10 @@ class PropertyMapper extends CrudQueue {
   public static function getConfig($type, $bundle) {
     $paths = module_invoke_all('aws_sqs_entity_property_mapper_config_paths');
     $file_pattern = join('.', [$type, $bundle, 'yml']);
-    $file_pattern_alt = join('.', [$type, 'yml']);
+    $file_pattern_type = join('.', [$type, 'yml']);
     foreach ($paths as $path) {
       $filename = join('/', [$path, $file_pattern]);
-      $filename_alt = join('/', [$path, $file_pattern_alt]);
+      $filename_type = join('/', [$path, $file_pattern_type]);
       if (file_exists($filename)) {
         // @todo Look deeper at Symfony/Component/Yaml/Yaml::parse bitwise
         //   operators. Quick test of PARSE_OBJECT_FOR_MAP and PARSE_OBJECT
@@ -119,8 +119,8 @@ class PropertyMapper extends CrudQueue {
         return Yaml::parse(file_get_contents($filename));
       }
       // If no yml exists for the Bundle, look for a Type specific yml.
-      elseif (file_exists($filename_alt)) {
-        return Yaml::parse(file_get_contents($filename_alt));
+      elseif (file_exists($filename_type)) {
+        return Yaml::parse(file_get_contents($filename_type));
       }
     }
   }
