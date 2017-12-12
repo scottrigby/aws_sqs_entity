@@ -102,6 +102,10 @@ class PropertyMapper extends CrudQueue {
    * @return array|null
    */
   public static function getConfig($type, $bundle) {
+    // Default the Taxonomy Term bundle to generic vocabulary.
+    if ($type == 'taxonomy_term') {
+      $bundle = 'vocabulary';
+    }
     $paths = module_invoke_all('aws_sqs_entity_property_mapper_config_paths');
     $file_pattern = join('.', [$type, $bundle, 'yml']);
     foreach ($paths as $path) {
