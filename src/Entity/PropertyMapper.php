@@ -456,13 +456,13 @@ class PropertyMapper extends CrudQueue {
       }
     }
     else {
-      // Need to check the parent entity is null or not. in order to prevent
-      // error message, EntityMetadataWrapperException: Unable to get the data
-      // property uuid as the parent data structure is not set.
-      if (!is_null($wrapper->info()['parent']->value())) {
+      // Try to catch the EntityMetadataWrapperException, and set the
+      // 'final_source_prop_value' to null, so prevent the undefined entity
+      // property error message from null entity.
+      try {
         $context['final_source_prop_value'] = $this->normalize($wrapper, $context);
       }
-      else {
+      catch (\EntityMetadataWrapperException $e) {
         $context['final_source_prop_value'] = null;
       }
     }
