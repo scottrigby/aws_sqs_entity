@@ -476,7 +476,15 @@ class PropertyMapper extends CrudQueue {
       }
     }
     else {
-      $context['final_source_prop_value'] = $this->normalize($wrapper, $context);
+      // Try to catch the EntityMetadataWrapperException, and set the
+      // 'final_source_prop_value' to null, so prevent the undefined entity
+      // property error message from null entity.
+      try {
+        $context['final_source_prop_value'] = $this->normalize($wrapper, $context);
+      }
+      catch (\EntityMetadataWrapperException $e) {
+        $context['final_source_prop_value'] = null;
+      }
     }
   }
 
