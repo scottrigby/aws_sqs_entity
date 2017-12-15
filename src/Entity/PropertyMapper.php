@@ -190,7 +190,27 @@ class PropertyMapper extends CrudQueue {
       $this->yamlPropertyMapper($this->config['field_map'], $data, $this->context);
     }
 
-    drupal_alter('aws_sqs_entity_message_body', $data, $this->context);
+    $this->alterMessageBody($data, $this->context);
+
+    return $data;
+  }
+
+  /**
+   * Allows modules to alter the final message body.
+   *
+   * @param array $data
+   *   The SQS message body data. See $data param of CrudQueue::getMessageBody().
+   * @param array $context
+   *   See $context param of PropertyMapper::yamlPropertyMapper().
+   *
+   * @return array
+   *
+   * Deprecates hook_aws_sqs_entity_message_body_alter()
+   */
+  protected static function alterMessageBody(array $data, array $context) {
+    // hook_aws_sqs_entity_message_body() is deprecated and will be removed in
+    // future version.
+    drupal_alter('aws_sqs_entity_message_body', $data, $context);
 
     return $data;
   }
