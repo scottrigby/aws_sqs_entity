@@ -16,3 +16,11 @@ Installation & Setup
     - Using the settings form at admin/config/system/aws-sqs-entity.
 3. Set rules for your allowed list of Entity types, bundles, and CRUD operations.
     - Similar options as above. See `\Drupal\aws_sqs_entity\Entity\CrudQueue::setRules()` for documentation.
+    
+Required Patches
+------------
+Please apply below patches if you encounter to any error or warning.
+ 
+- Entity API
+    * EntityMetadataWrapperException: Parent Data Structure Not Set
+      https://www.drupal.org/files/issues/entity-on-exception-return-null-1596594-62.patch
