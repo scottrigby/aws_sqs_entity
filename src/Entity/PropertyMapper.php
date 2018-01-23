@@ -40,6 +40,12 @@ class PropertyMapper extends CrudQueue {
    */
   protected $context = [];
 
+
+  /**
+   * @var array
+   */
+  protected $value = [];
+
   /**
    * {@inheritdoc}
    *
@@ -229,6 +235,9 @@ class PropertyMapper extends CrudQueue {
         continue;
       }
 
+      // Check for any typecasting first and set it.
+      $this->checkTypeCasting($source_prop, $dest_prop);
+
       // Add current destination property to context for normalizers.
       $context['final_dest_prop'] = $dest_prop;
       $context['or_source_props'] = explode('|', $source_prop);
@@ -250,9 +259,14 @@ class PropertyMapper extends CrudQueue {
         $this->checkOring($context);
       }
 
+      // If it has a value, store it so we can type cast it.
+      if (!empty($context['final_source_prop_value'])) {
+        $this->setValue($context['final_source_prop_value'], $dest_prop);
+      }
+
       // Pass through strings as the value if they're not an Entity property
       // recognized by EMD->FIELD.
-      $data[$dest_prop] = array_key_exists('final_source_prop_value', $context) ? $context['final_source_prop_value'] : $source_prop;
+      $data[$dest_prop] = array_key_exists('final_source_prop_value', $context) ? $this->setType($dest_prop, $context['final_source_prop_value']) : $source_prop;
     }
   }
 
@@ -335,6 +349,123 @@ class PropertyMapper extends CrudQueue {
         $this->checkAnding($context, $mergedArray);
       }
     }
+  }
+
+  /**
+   * Converts the final value to a type if it's been set.
+   *
+   * Example YAML:
+   * @code
+   * field_map:
+   *   typeCastExample: !!string field_movie_primary_genre.id
+   * @endcode
+   *
+   * The end structure should return:
+   * @code
+   * "typeCastExample": "1234"
+   * @endcode
+   *
+   *
+   * @param string $dest_prop
+   *  The final destination property.
+   * @param $final
+   *  The final_source_prop_value from yamlPropertyMapper().
+   *
+   * @return mixed
+   */
+  protected function setType($dest_prop, $final) {
+    $value = $this->getValue($dest_prop);
+    if(isset($value['data_type']) && isset($value['data'])) {
+      settype($final, $value['data_type']);
+    }
+    return $final;
+  }
+
+  /**
+   * Value getter for stored values.
+   *
+   * @param string $dest_prop
+   *  The final destination property
+   *
+   * @return mixed
+   */
+  protected function getValue($dest_prop = NULL) {
+    if (!empty($this->value)) {
+      if ($dest_prop && isset($this->value[$dest_prop])) {
+        return $this->value[$dest_prop];
+      }
+    }
+  }
+
+  /**
+   * Checks and sets any typecasting. This will override any final values.
+   *
+   * @param string $source_prop
+   * @param string $dest_prop
+   */
+  protected function checkTypeCasting(&$source_prop, $dest_prop){
+    preg_match("/!!\b([a-z]*){2,}\b/", $source_prop, $matches);
+    if (count($matches) > 0) {
+      $type = str_replace('!!', '', $matches[0]);
+      // Delete type casting from $source_prop.
+      $source_prop = str_replace($matches[0] . ' ', '', $source_prop);
+      if (!$this->validateType($type)) {
+        return;
+      }
+      $this->setValue(NULL, $dest_prop, $type);
+    }
+  }
+
+  /**
+   * Checks if casted type is valid.
+   *
+   * @param string $type
+   *  The type to check.
+   *
+   * @return bool
+   *  Returns TRUE or FALSE if type is valid.
+   */
+  protected function validateType($type) {
+    $valid_types = [
+      'boolean',
+      'bool',
+      'integer',
+      'int',
+      'float',
+      'double',
+      'string',
+      'array',
+      'object',
+      'null',
+    ];
+    if (in_array($type, $valid_types)) {
+      return TRUE;
+    }
+    return FALSE;
+  }
+
+  /**
+   * Stores values from yamlPropertyMapper().
+   *
+   * @param string $value
+   *  Optional: Store the final value of the destination.
+   * @param $dest_prop
+   *  Required: The final destination property.
+   * @param string $type
+   *  Optional: What the value should be type casted as.
+   *
+   * @return $this
+   */
+  protected function setValue($value = NULL, $dest_prop, $type = NULL) {
+    if (!empty($dest_prop)) {
+      if (!empty($value)) {
+        $this->value[$dest_prop]['data'] = $value;
+      }
+      if (!empty($type)) {
+        $this->value[$dest_prop]['data_type'] = $type;
+      }
+    }
+    return $this;
   }
 
   /**
