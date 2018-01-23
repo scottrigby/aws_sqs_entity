@@ -229,6 +229,9 @@ class PropertyMapper extends CrudQueue {
         continue;
       }
 
+      // Check for any typecasting first and set it.
+      $cast = $this->checkTypeCasting($source_prop);
+
       // Add current destination property to context for normalizers.
       $context['final_dest_prop'] = $dest_prop;
       $context['or_source_props'] = explode('|', $source_prop);
@@ -252,7 +255,7 @@ class PropertyMapper extends CrudQueue {
 
       // Pass through strings as the value if they're not an Entity property
       // recognized by EMD->FIELD.
-      $data[$dest_prop] = array_key_exists('final_source_prop_value', $context) ? $context['final_source_prop_value'] : $source_prop;
+      $data[$dest_prop] = array_key_exists('final_source_prop_value', $context) ? $this->setType($cast, $context['final_source_prop_value']) : $source_prop;
     }
   }
 
@@ -335,6 +338,84 @@ class PropertyMapper extends CrudQueue {
         $this->checkAnding($context, $mergedArray);
       }
     }
+  }
+
+  /**
+   * Converts the final value to a type if it's been set.
+   *
+   * Example YAML:
+   * @code
+   * field_map:
+   *   typeCastExample: !!string field_movie_primary_genre.id
+   * @endcode
+   *
+   * The end structure should return:
+   * @code
+   * "typeCastExample": "1234"
+   * @endcode
+   *
+   *
+   * @param string $type
+   *  The type to be used in casting.
+   * @param $final
+   *  The final_source_prop_value from yamlPropertyMapper().
+   *
+   * @return mixed
+   */
+  protected function setType($type, $final) {
+    if (!empty($type) && !empty($final)) {
+      settype($final, $type);
+    }
+    return $final;
+  }
+
+  /**
+   * Checks and sets any typecasting. This will override any final values.
+   *
+   * @param string $source_prop
+   *
+   * @see self::setType() for examples.
+   */
+  protected function checkTypeCasting(&$source_prop){
+    preg_match("/!!\b([a-z]*){2,}\b/", $source_prop, $matches);
+    if (count($matches) > 0) {
+      $type = str_replace('!!', '', $matches[0]);
+      // Delete type casting from $source_prop.
+      $source_prop = str_replace($matches[0] . ' ', '', $source_prop);
+      if (!$this->validateType($type)) {
+        return NULL;
+      }
+      return $type;
+    }
+    return NULL;
+  }
+
+  /**
+   * Checks if casted type is valid.
+   *
+   * @param string $type
+   *  The type to check.
+   *
+   * @return bool
+   *  Returns TRUE or FALSE if type is valid.
+   */
+  protected function validateType($type) {
+    $valid_types = [
+      'boolean',
+      'bool',
+      'integer',
+      'int',
+      'float',
+      'double',
+      'string',
+      'array',
+      'object',
+      'null',
+    ];
+    if (in_array($type, $valid_types)) {
+      return TRUE;
+    }
+    return FALSE;
   }
 
   /**
