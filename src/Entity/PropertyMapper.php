@@ -40,12 +40,6 @@ class PropertyMapper extends CrudQueue {
    */
   protected $context = [];
 
-
-  /**
-   * @var array
-   */
-  protected $typeValues = [];
-
   /**
    * {@inheritdoc}
    *
@@ -236,7 +230,7 @@ class PropertyMapper extends CrudQueue {
       }
 
       // Check for any typecasting first and set it.
-      $this->checkTypeCasting($source_prop, $dest_prop);
+      $cast = $this->checkTypeCasting($source_prop);
 
       // Add current destination property to context for normalizers.
       $context['final_dest_prop'] = $dest_prop;
@@ -259,9 +253,9 @@ class PropertyMapper extends CrudQueue {
         $this->checkOring($context);
       }
 
-       // Pass through strings as the value if they're not an Entity property
+      // Pass through strings as the value if they're not an Entity property
       // recognized by EMD->FIELD.
-      $data[$dest_prop] = array_key_exists('final_source_prop_value', $context) ? $this->setType($dest_prop, $context['final_source_prop_value']) : $source_prop;
+      $data[$dest_prop] = array_key_exists('final_source_prop_value', $context) ? $this->setType($cast, $context['final_source_prop_value']) : $source_prop;
     }
   }
 
@@ -361,56 +355,39 @@ class PropertyMapper extends CrudQueue {
    * @endcode
    *
    *
-   * @param string $dest_prop
-   *  The final destination property.
+   * @param string $type
+   *  The type to be used in casting.
    * @param $final
    *  The final_source_prop_value from yamlPropertyMapper().
    *
    * @return mixed
    */
-  protected function setType($dest_prop, $final) {
-    $value = $this->getTypeValues($dest_prop);
-    if (isset($value) && !empty($final)) {
-      settype($final, $value);
+  protected function setType($type, $final) {
+    if (!empty($type) && !empty($final)) {
+      settype($final, $type);
     }
     return $final;
-  }
-
-  /**
-   * Value getter for stored values.
-   *
-   * @param string $dest_prop
-   *  The final destination property
-   *
-   * @return mixed
-   */
-  protected function getTypeValues($dest_prop = NULL) {
-    if (!empty($this->typeValues)) {
-      if ($dest_prop && isset($this->typeValues[$dest_prop])) {
-        return $this->typeValues[$dest_prop];
-      }
-    }
   }
 
   /**
    * Checks and sets any typecasting. This will override any final values.
    *
    * @param string $source_prop
-   * @param string $dest_prop
    *
    * @see self::setType() for examples.
    */
-  protected function checkTypeCasting(&$source_prop, $dest_prop){
+  protected function checkTypeCasting(&$source_prop){
     preg_match("/!!\b([a-z]*){2,}\b/", $source_prop, $matches);
     if (count($matches) > 0) {
       $type = str_replace('!!', '', $matches[0]);
       // Delete type casting from $source_prop.
       $source_prop = str_replace($matches[0] . ' ', '', $source_prop);
       if (!$this->validateType($type)) {
-        return;
+        return NULL;
       }
-      $this->setTypeValues($dest_prop, $type);
+      return $type;
     }
+    return NULL;
   }
 
   /**
@@ -439,25 +416,6 @@ class PropertyMapper extends CrudQueue {
       return TRUE;
     }
     return FALSE;
-  }
-
-  /**
-   * Stores values from yamlPropertyMapper().
-   *
-   * @param string $value
-   *  Optional: Store the final value of the destination.
-   * @param $dest_prop
-   *  Required: The final destination property.
-   * @param string $type
-   *  Optional: What the value should be type casted as.
-   *
-   * @return $this
-   */
-  protected function setTypeValues($dest_prop, $type = NULL) {
-    if (!empty($dest_prop) && !empty($type)) {
-        $this->typeValues[$dest_prop] = $type;
-    }
-    return $this;
   }
 
   /**
