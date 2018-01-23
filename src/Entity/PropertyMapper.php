@@ -402,6 +402,8 @@ class PropertyMapper extends CrudQueue {
    *
    * @param string $source_prop
    * @param string $dest_prop
+   *
+   * @see self::setType() for examples.
    */
   protected function checkTypeCasting(&$source_prop, $dest_prop){
     preg_match("/!!\b([a-z]*){2,}\b/", $source_prop, $matches);
