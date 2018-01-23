@@ -44,7 +44,7 @@ class PropertyMapper extends CrudQueue {
   /**
    * @var array
    */
-  protected $value = [];
+  protected $typeValues = [];
 
   /**
    * {@inheritdoc}
@@ -259,12 +259,7 @@ class PropertyMapper extends CrudQueue {
         $this->checkOring($context);
       }
 
-      // If it has a value, store it so we can type cast it.
-      if (!empty($context['final_source_prop_value'])) {
-        $this->setValue($context['final_source_prop_value'], $dest_prop);
-      }
-
-      // Pass through strings as the value if they're not an Entity property
+       // Pass through strings as the value if they're not an Entity property
       // recognized by EMD->FIELD.
       $data[$dest_prop] = array_key_exists('final_source_prop_value', $context) ? $this->setType($dest_prop, $context['final_source_prop_value']) : $source_prop;
     }
@@ -374,9 +369,9 @@ class PropertyMapper extends CrudQueue {
    * @return mixed
    */
   protected function setType($dest_prop, $final) {
-    $value = $this->getValue($dest_prop);
-    if(isset($value['data_type']) && isset($value['data'])) {
-      settype($final, $value['data_type']);
+    $value = $this->getTypeValues($dest_prop);
+    if (isset($value) && !empty($final)) {
+      settype($final, $value);
     }
     return $final;
   }
@@ -389,10 +384,10 @@ class PropertyMapper extends CrudQueue {
    *
    * @return mixed
    */
-  protected function getValue($dest_prop = NULL) {
-    if (!empty($this->value)) {
-      if ($dest_prop && isset($this->value[$dest_prop])) {
-        return $this->value[$dest_prop];
+  protected function getTypeValues($dest_prop = NULL) {
+    if (!empty($this->typeValues)) {
+      if ($dest_prop && isset($this->typeValues[$dest_prop])) {
+        return $this->typeValues[$dest_prop];
       }
     }
   }
@@ -414,7 +409,7 @@ class PropertyMapper extends CrudQueue {
       if (!$this->validateType($type)) {
         return;
       }
-      $this->setValue(NULL, $dest_prop, $type);
+      $this->setTypeValues($dest_prop, $type);
     }
   }
 
@@ -458,14 +453,9 @@ class PropertyMapper extends CrudQueue {
    *
    * @return $this
    */
-  protected function setValue($value = NULL, $dest_prop, $type = NULL) {
-    if (!empty($dest_prop)) {
-      if (!empty($value)) {
-        $this->value[$dest_prop]['data'] = $value;
-      }
-      if (!empty($type)) {
-        $this->value[$dest_prop]['data_type'] = $type;
-      }
+  protected function setTypeValues($dest_prop, $type = NULL) {
+    if (!empty($dest_prop) && !empty($type)) {
+        $this->typeValues[$dest_prop] = $type;
     }
     return $this;
   }
