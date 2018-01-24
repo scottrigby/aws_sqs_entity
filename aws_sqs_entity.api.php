@@ -121,14 +121,11 @@ function hook_aws_sqs_entity_normalized_value_alter(&$value, array $context) {
 }
 
 /**
- * Allows modules to alter the final message body.
+ * @deprecated Use PropertyMapper::alterMessageBody() instead.
  *
- * @param array $data
- *   The SQS message body data. See $data param of CrudQueue::getMessageBody().
- * @param array $context
- *   See $context param of PropertyMapper::yamlPropertyMapper().
+ * Will be removed in future version.
  *
- * @see \Drupal\aws_sqs_entity\Entity\PropertyMapper::getMessageBody()
+ * @see \Drupal\aws_sqs_entity\Entity\PropertyMapper::alterMessageBody()
  */
 function hook_aws_sqs_entity_message_body_alter(array &$data, array $context) {
   // Example: The external resource type "exampleResourceType" has a property
