@@ -139,7 +139,8 @@ class CrudQueue extends \AwsSqsQueue {
     // foreach getIterator(), or on value() - only when CRUD-triggered.
     // @todo Investigate this patch: https://www.drupal.org/node/1013428
     list($id) = entity_extract_ids($type, $entity);
-    $entity = entity_load_single($type, $id);
+    $uncached_entity = entity_load($type, [$id], [], TRUE);
+    $entity = reset($uncached_entity);
 
     // @todo Pass any overloaded args.
     return new $class($name, $type, $entity, $op);
